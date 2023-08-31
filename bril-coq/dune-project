@@ -1,0 +1,20 @@
+(lang dune 3.4)
+
+(using coq 0.5)
+
+(name bril)
+
+(generate_opam_files true)
+
+(source
+ (github sampsyo/bril))
+
+(package
+ (name bril)
+ (version 0.1.0)
+ (synopsis "Bril: A Compiler Intermediate Representation for Learning")
+ (maintainers "zak33@cornell.edu")
+ (authors "Zak Kent")
+ (bug_reports "https://github.com/sampsyo/bril")
+ (license "MIT")
+ (depends dune))

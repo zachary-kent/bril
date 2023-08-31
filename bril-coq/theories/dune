@@ -1,0 +1,5 @@
+(coq.theory
+ (name Bril)
+ (package bril))
+
+(include_subdirs qualified)
