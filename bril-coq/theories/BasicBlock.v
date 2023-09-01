@@ -1,5 +1,4 @@
 Require Import Coq.Strings.String.
-
 Require Instruction.
 
 (** Represents a Bril basic block; that is, a series of consecutive instructions

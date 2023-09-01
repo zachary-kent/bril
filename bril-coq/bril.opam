@@ -8,7 +8,10 @@ license: "MIT"
 homepage: "https://github.com/sampsyo/bril"
 bug-reports: "https://github.com/sampsyo/bril"
 depends: [
+  "coq"
   "dune" {>= "3.4"}
+  "coq-ext-lib"
+  "coq-json"
   "odoc" {with-doc}
 ]
 build: [

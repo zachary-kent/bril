@@ -17,4 +17,4 @@
  (authors "Zak Kent")
  (bug_reports "https://github.com/sampsyo/bril")
  (license "MIT")
- (depends dune))
+ (depends coq dune coq-ext-lib coq-json))
