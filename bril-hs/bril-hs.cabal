@@ -26,6 +26,8 @@ source-repository head
 library
   exposed-modules:
       Bril.Optimizations.DCE.Trivial
+      Bril.Optimizations.LVN
+      Bril.Optimizations.LVN.RenameTable
       Bril.Syntax.Expr
       Bril.Syntax.Func
       Bril.Syntax.Instr
@@ -45,13 +47,20 @@ library
       OverloadedStrings
       LambdaCase
       NamedFieldPuns
-      AllowAmbiguousTypes
+      DeriveFunctor
+      DeriveFoldable
+      DeriveTraversable
+      TypeSynonymInstances
+      FlexibleInstances
+      ScopedTypeVariables
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints
   build-depends:
       aeson
     , aeson-pretty
     , base >=4.7 && <5
     , bytestring
+    , containers
+    , optparse-applicative
     , scientific
     , text
   default-language: Haskell2010
@@ -71,7 +80,12 @@ executable bril-hs-exe
       OverloadedStrings
       LambdaCase
       NamedFieldPuns
-      AllowAmbiguousTypes
+      DeriveFunctor
+      DeriveFoldable
+      DeriveTraversable
+      TypeSynonymInstances
+      FlexibleInstances
+      ScopedTypeVariables
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       aeson
@@ -79,6 +93,8 @@ executable bril-hs-exe
     , base >=4.7 && <5
     , bril-hs
     , bytestring
+    , containers
+    , optparse-applicative
     , scientific
     , text
   default-language: Haskell2010
@@ -99,7 +115,12 @@ test-suite bril-hs-test
       OverloadedStrings
       LambdaCase
       NamedFieldPuns
-      AllowAmbiguousTypes
+      DeriveFunctor
+      DeriveFoldable
+      DeriveTraversable
+      TypeSynonymInstances
+      FlexibleInstances
+      ScopedTypeVariables
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       aeson
@@ -107,6 +128,8 @@ test-suite bril-hs-test
     , base >=4.7 && <5
     , bril-hs
     , bytestring
+    , containers
+    , optparse-applicative
     , scientific
     , text
   default-language: Haskell2010

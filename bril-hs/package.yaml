@@ -26,6 +26,8 @@ dependencies:
 - aeson-pretty
 - scientific
 - text
+- containers
+- optparse-applicative
 
 default-extensions:
 - TypeApplications
@@ -36,7 +38,12 @@ default-extensions:
 - OverloadedStrings
 - LambdaCase
 - NamedFieldPuns
-- AllowAmbiguousTypes
+- DeriveFunctor
+- DeriveFoldable
+- DeriveTraversable
+- TypeSynonymInstances
+- FlexibleInstances
+- ScopedTypeVariables
 
 ghc-options:
 - -Wall

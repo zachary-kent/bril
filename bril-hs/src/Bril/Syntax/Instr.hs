@@ -1,4 +1,14 @@
-module Bril.Syntax.Instr (Instr (..), uses, def, destType, isTerminator, opcode, isPure) where
+module Bril.Syntax.Instr
+  ( Instr,
+    Instr' (..),
+    uses,
+    def,
+    destType,
+    isTerminator,
+    opcode,
+    isPure,
+  )
+where
 
 import Bril.Syntax.Expr (Expr (..))
 import Bril.Syntax.Expr qualified as Expr
@@ -14,22 +24,24 @@ type Operand = Text
 
 type Label = Text
 
-data Instr
-  = Assign Text Type (Expr Operand)
+data Instr' a
+  = Assign Text Type (Expr a)
   | Jmp Label
-  | Br Operand Label Label
-  | CallEff Text [Operand]
-  | Ret (Maybe Operand)
-  | Print [Operand]
+  | Br a Label Label
+  | CallEff Text [a]
+  | Ret (Maybe a)
+  | Print [a]
   | Nop
-  | Free Operand
-  | Store Operand Operand
+  | Free a
+  | Store a a
   | Speculate
   | Commit
-  | Guard Operand Label
-  deriving (Show)
+  | Guard a Label
+  deriving (Show, Functor, Foldable, Traversable)
 
-uses :: Instr -> [Operand]
+type Instr = Instr' Operand
+
+uses :: Instr' a -> [a]
 uses (Assign _ _ e) = Expr.uses e
 uses (Jmp _) = []
 uses (Br cond _ _) = [cond]
@@ -43,25 +55,25 @@ uses Speculate = []
 uses Commit = []
 uses (Guard cond _) = [cond]
 
-def :: Instr -> Maybe Operand
+def :: Instr' a -> Maybe Operand
 def (Assign x _ _) = pure x
 def _ = Nothing
 
-destType :: Instr -> Maybe Type
+destType :: Instr' a -> Maybe Type
 destType (Assign _ t _) = pure t
 destType _ = Nothing
 
-labels :: Instr -> [Text]
+labels :: Instr' a -> [Text]
 labels (Jmp l) = [l]
 labels (Br _ t f) = [t, f]
 labels _ = []
 
-funcs :: Instr -> [Text]
+funcs :: Instr' a -> [Text]
 funcs (CallEff func _) = [func]
 funcs (Assign _ _ (Call func _)) = [func]
 funcs _ = []
 
-isTerminator :: Instr -> Bool
+isTerminator :: Instr' a -> Bool
 isTerminator (Ret _) = True
 isTerminator (Jmp _) = True
 isTerminator (Br {}) = True

@@ -31,7 +31,7 @@ data Expr a
   | Alloc a
   | Load a
   | PtrAdd a a
-  deriving (Show)
+  deriving (Show, Functor, Foldable, Traversable)
 
 uses :: Expr a -> [a]
 uses (Add x y) = [x, y]

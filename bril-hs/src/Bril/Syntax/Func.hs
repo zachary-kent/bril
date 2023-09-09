@@ -1,6 +1,6 @@
 module Bril.Syntax.Func (BasicBlock (..), Func (..), Arg (..)) where
 
-import Bril.Syntax.Instr (Instr (..), isTerminator)
+import Bril.Syntax.Instr (Instr, isTerminator)
 import Bril.Syntax.Type (Type (..))
 import Control.Applicative ((<|>))
 import Control.Arrow ((>>>))
