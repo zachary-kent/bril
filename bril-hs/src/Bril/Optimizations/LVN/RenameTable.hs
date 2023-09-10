@@ -26,7 +26,7 @@ data RenameTable = RenameTable
 fromBasicBlock :: [Instr] -> RenameTable
 fromBasicBlock block =
   RenameTable
-    { unavailable = Set.fromList $ mapMaybe Instr.def block,
+    { unavailable = Set.fromList $ concatMap Instr.uses block ++ mapMaybe Instr.def block,
       renamings = Map.empty
     }
 
