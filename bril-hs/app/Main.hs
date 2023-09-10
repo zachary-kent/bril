@@ -16,23 +16,23 @@ import System.Exit
 import System.IO
 
 data Options = Options
-  { dce :: Bool,
+  { tdce :: Bool,
     lvn :: Bool
   }
 
 options :: Parser Options
 options =
   Options
-    <$> switch (long "dce" <> help "Perform dead code elimination")
+    <$> switch (long "tdce" <> help "Perform trivial dead code elimination")
     <*> switch (long "lvn" <> help "Perform local value numbering")
 
 type Optimization = Program -> Program
 
 requestedOptimizations :: Options -> [Optimization]
-requestedOptimizations Options {dce, lvn} =
+requestedOptimizations Options {tdce, lvn} =
   catMaybes
-    [ guard dce $> DCE.runOnProgram,
-      guard lvn $> LVN.runOnProgram
+    [ guard lvn $> LVN.runOnProgram,
+      guard tdce $> DCE.runOnProgram
     ]
 
 parseOptions :: IO Options

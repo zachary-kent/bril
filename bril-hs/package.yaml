@@ -28,6 +28,10 @@ dependencies:
 - text
 - containers
 - optparse-applicative
+- effectful-core
+- effectful-plugin
+- effectful-th
+- microlens-platform
 
 default-extensions:
 - TypeApplications
@@ -44,6 +48,13 @@ default-extensions:
 - TypeSynonymInstances
 - FlexibleInstances
 - ScopedTypeVariables
+- GADTs
+- TemplateHaskell
+- KindSignatures
+- FlexibleContexts
+- TypeFamilies
+- TypeOperators
+- DataKinds
 
 ghc-options:
 - -Wall
@@ -55,6 +66,8 @@ ghc-options:
 - -Wmissing-home-modules
 - -Wpartial-fields
 - -Wredundant-constraints
+- -O2
+- -fplugin=Effectful.Plugin
 
 library:
   source-dirs: src

@@ -10,7 +10,7 @@ module Bril.Syntax.Instr
   )
 where
 
-import Bril.Syntax.Expr (Expr (..))
+import Bril.Syntax.Expr (Expr, Expr' (..))
 import Bril.Syntax.Expr qualified as Expr
 import Bril.Syntax.Literal (Literal)
 import Bril.Syntax.Type (Type)
@@ -25,7 +25,7 @@ type Operand = Text
 type Label = Text
 
 data Instr' a
-  = Assign Text Type (Expr a)
+  = Assign Text Type (Expr' a)
   | Jmp Label
   | Br a Label Label
   | CallEff Text [a]
@@ -80,7 +80,7 @@ isTerminator (Br {}) = True
 isTerminator (Guard _ _) = True
 isTerminator _ = False
 
-parseUnary :: (Text -> Expr Operand) -> Object -> Parser Instr
+parseUnary :: (Text -> Expr) -> Object -> Parser Instr
 parseUnary unop obj = do
   (dest, ty) <- parseDest obj
   [x] <- obj .: "args"
@@ -90,7 +90,7 @@ parseDest :: Object -> Parser (Text, Type)
 parseDest obj =
   (,) <$> obj .: "dest" <*> obj .: "type"
 
-parseBinary :: (Text -> Text -> Expr Operand) -> Object -> Parser Instr
+parseBinary :: (Text -> Text -> Expr) -> Object -> Parser Instr
 parseBinary binop obj = do
   (dest, ty) <- parseDest obj
   [x, y] <- obj .: "args"

@@ -9,7 +9,7 @@ where
 
 import Bril.Syntax.Instr (Instr)
 import Bril.Syntax.Instr qualified as Instr
-import Control.Monad (guard)
+import Data.Foldable qualified as Foldable
 import Data.Map (Map)
 import Data.Map qualified as Map
 import Data.Maybe
@@ -34,14 +34,9 @@ rename :: Text -> RenameTable -> (Text, RenameTable)
 rename x RenameTable {renamings, unavailable} = (x', table)
   where
     x' =
-      head $
-        mapMaybe
-          ( \(n :: Integer) -> do
-              let newName = x <> Text.pack (show n)
-              guard $ not $ Set.member newName unavailable
-              pure newName
-          )
-          [1 ..]
+      fromJust $
+        Foldable.find (\newName -> not $ Set.member newName unavailable) $
+          map (\(n :: Integer) -> x <> Text.pack (show n)) [1 ..]
     table =
       RenameTable
         { renamings = Map.insert x x' renamings,

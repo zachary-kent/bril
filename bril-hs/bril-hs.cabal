@@ -28,6 +28,7 @@ library
       Bril.Optimizations.DCE.Trivial
       Bril.Optimizations.LVN
       Bril.Optimizations.LVN.RenameTable
+      Bril.Optimizations.LVN.Table
       Bril.Syntax.Expr
       Bril.Syntax.Func
       Bril.Syntax.Instr
@@ -53,13 +54,24 @@ library
       TypeSynonymInstances
       FlexibleInstances
       ScopedTypeVariables
-  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints
+      GADTs
+      TemplateHaskell
+      KindSignatures
+      FlexibleContexts
+      TypeFamilies
+      TypeOperators
+      DataKinds
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -O2 -fplugin=Effectful.Plugin
   build-depends:
       aeson
     , aeson-pretty
     , base >=4.7 && <5
     , bytestring
     , containers
+    , effectful-core
+    , effectful-plugin
+    , effectful-th
+    , microlens-platform
     , optparse-applicative
     , scientific
     , text
@@ -86,7 +98,14 @@ executable bril-hs-exe
       TypeSynonymInstances
       FlexibleInstances
       ScopedTypeVariables
-  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
+      GADTs
+      TemplateHaskell
+      KindSignatures
+      FlexibleContexts
+      TypeFamilies
+      TypeOperators
+      DataKinds
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -O2 -fplugin=Effectful.Plugin -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       aeson
     , aeson-pretty
@@ -94,6 +113,10 @@ executable bril-hs-exe
     , bril-hs
     , bytestring
     , containers
+    , effectful-core
+    , effectful-plugin
+    , effectful-th
+    , microlens-platform
     , optparse-applicative
     , scientific
     , text
@@ -121,7 +144,14 @@ test-suite bril-hs-test
       TypeSynonymInstances
       FlexibleInstances
       ScopedTypeVariables
-  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
+      GADTs
+      TemplateHaskell
+      KindSignatures
+      FlexibleContexts
+      TypeFamilies
+      TypeOperators
+      DataKinds
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -O2 -fplugin=Effectful.Plugin -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       aeson
     , aeson-pretty
@@ -129,6 +159,10 @@ test-suite bril-hs-test
     , bril-hs
     , bytestring
     , containers
+    , effectful-core
+    , effectful-plugin
+    , effectful-th
+    , microlens-platform
     , optparse-applicative
     , scientific
     , text
