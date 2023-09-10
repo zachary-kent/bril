@@ -26,6 +26,8 @@ source-repository head
 library
   exposed-modules:
       Bril.Optimizations.DCE.Trivial
+      Bril.Optimizations.DCE.Trivial.Global
+      Bril.Optimizations.DCE.Trivial.Local
       Bril.Optimizations.LVN
       Bril.Optimizations.LVN.RenameTable
       Bril.Optimizations.LVN.Table

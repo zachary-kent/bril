@@ -1,6 +1,6 @@
 module Main (main) where
 
-import Bril.Optimizations.DCE.Trivial qualified as DCE
+import Bril.Optimizations.DCE.Trivial qualified as TDCE
 import Bril.Optimizations.LVN qualified as LVN
 import Bril.Syntax.Program (Program)
 import Control.Monad (guard)
@@ -32,7 +32,7 @@ requestedOptimizations :: Options -> [Optimization]
 requestedOptimizations Options {tdce, lvn} =
   catMaybes
     [ guard lvn $> LVN.runOnProgram,
-      guard tdce $> DCE.runOnProgram
+      guard tdce $> TDCE.runOnProgram
     ]
 
 parseOptions :: IO Options

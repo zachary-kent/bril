@@ -12,7 +12,7 @@ module Bril.Optimizations.LVN.Table
   )
 where
 
-import Bril.Syntax.Expr (Expr' (..))
+import Bril.Syntax.Expr (Expr, Expr' (..))
 import Control.Monad (guard)
 import Data.Functor
 import Data.List (find)
@@ -93,15 +93,19 @@ canonicalHome x = view var <$> lookupOrCreateEntryForVar x
 lookupVN :: (State Table :> es) => Text -> Eff es Integer
 lookupVN x = view number <$> lookupOrCreateEntryForVar x
 
-lookupValue :: Value -> Table -> Maybe (Integer, Text)
-lookupValue (Id x) Table {_var2num, _entries} =
-  pure (x, view var $ lookupEntryForVN x _entries)
+lookupValue :: Value -> Table -> Maybe (Integer, Expr)
+lookupValue (Id x) Table {_var2num, _entries} = pure (x, expr)
+  where
+    Entry {_var, _value} = lookupEntryForVN x _entries
+    expr = case _value of
+      Just (Const lit) -> Const lit
+      _ -> Id _var
 lookupValue e Table {_entries} =
   listToMaybe $
     flip mapMaybe _entries \Entry {_number, _value, _var} -> do
       val <- _value
       guard $ e == val
-      pure (_number, _var)
+      pure (_number, Id _var)
 
 removeAssoc :: (Eq a) => a -> [(a, b)] -> [(a, b)]
 removeAssoc k = filter $ (/= k) . fst

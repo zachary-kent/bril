@@ -1,11 +1,14 @@
-module Bril.Syntax.Func (BasicBlock (..), Func (..), Arg (..)) where
+module Bril.Syntax.Func (BasicBlock (..), Func (..), Arg (..), uses, size) where
 
 import Bril.Syntax.Instr (Instr, isTerminator)
+import Bril.Syntax.Instr qualified as Instr
 import Bril.Syntax.Type (Type (..))
 import Control.Applicative ((<|>))
 import Control.Arrow ((>>>))
 import Data.Aeson
 import Data.Maybe
+import Data.Set (Set)
+import Data.Set qualified as Set
 import Data.Text (Text)
 
 data SurfaceInstr = Instr Instr | Label Text
@@ -61,6 +64,15 @@ data Func = Func
   }
   deriving (Show)
 
+instrs :: Func -> [Instr]
+instrs Func {blocks} = concatMap (\BasicBlock {instrs = is} -> is) blocks
+
+size :: Func -> Int
+size = length . instrs
+
+uses :: Func -> Set Text
+uses = Set.fromList . concatMap Instr.uses . instrs
+
 instance FromJSON Func where
   parseJSON =
     withObject "function" \obj ->
@@ -80,7 +92,7 @@ instance ToJSON Func where
            ]
     where
       blocksToInstrs =
-        concatMap \(BasicBlock bb instrs) ->
+        concatMap \(BasicBlock bb is) ->
           case bb of
-            Just block -> object ["label" .= block] : map toJSON instrs
-            Nothing -> map toJSON instrs
+            Just block -> object ["label" .= block] : map toJSON is
+            Nothing -> map toJSON is

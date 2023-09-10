@@ -4,7 +4,6 @@ import Bril.Optimizations.LVN.RenameTable (RenameTable)
 import Bril.Optimizations.LVN.RenameTable qualified as RenameTable
 import Bril.Optimizations.LVN.Table (Table)
 import Bril.Optimizations.LVN.Table qualified as Table
-import Bril.Syntax.Expr (Expr' (..))
 import Bril.Syntax.Func (BasicBlock (..), Func (..))
 import Bril.Syntax.Instr (Instr, Instr' (..))
 import Bril.Syntax.Instr qualified as Instr
@@ -41,9 +40,8 @@ runOnInstrs (instr@(Assign x ty e) : instrs) = do
   value <- traverse Table.lookupVN e
   gets (Table.lookupValue value) >>= \case
     Just (num, canonical) -> do
-      let instr' = Assign x ty (Id canonical)
       Table.setVNForVar x num
-      (instr' :) <$> runOnInstrs instrs
+      (Assign x ty canonical :) <$> runOnInstrs instrs
     Nothing -> do
       Table.insertValue x value
       (:) <$> canonicalizeUses instr <*> runOnInstrs instrs
