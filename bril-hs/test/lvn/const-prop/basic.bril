@@ -2,4 +2,5 @@
   x: int = const 1;
   y: int = id x;
   z: int = id y;
+  print x y z;
 }

@@ -13,11 +13,9 @@ author:         Author name here
 maintainer:     example@example.com
 copyright:      2023 Author name here
 license:        BSD3
-license-file:   LICENSE
 build-type:     Simple
 extra-source-files:
     README.md
-    CHANGELOG.md
 
 source-repository head
   type: git
@@ -84,51 +82,6 @@ executable bril-hs-exe
       Paths_bril_hs
   hs-source-dirs:
       app
-  default-extensions:
-      TypeApplications
-      BlockArguments
-      ImportQualifiedPost
-      NoFieldSelectors
-      DuplicateRecordFields
-      OverloadedStrings
-      LambdaCase
-      NamedFieldPuns
-      DeriveFunctor
-      DeriveFoldable
-      DeriveTraversable
-      TypeSynonymInstances
-      FlexibleInstances
-      ScopedTypeVariables
-      GADTs
-      TemplateHaskell
-      KindSignatures
-      FlexibleContexts
-      TypeFamilies
-      TypeOperators
-      DataKinds
-  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -O2 -fplugin=Effectful.Plugin -threaded -rtsopts -with-rtsopts=-N
-  build-depends:
-      aeson
-    , aeson-pretty
-    , base >=4.7 && <5
-    , bril-hs
-    , bytestring
-    , containers
-    , effectful-core
-    , effectful-plugin
-    , effectful-th
-    , microlens-platform
-    , optparse-applicative
-    , text
-  default-language: Haskell2010
-
-test-suite bril-hs-test
-  type: exitcode-stdio-1.0
-  main-is: Spec.hs
-  other-modules:
-      Paths_bril_hs
-  hs-source-dirs:
-      test
   default-extensions:
       TypeApplications
       BlockArguments

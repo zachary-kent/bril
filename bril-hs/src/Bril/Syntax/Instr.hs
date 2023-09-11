@@ -12,7 +12,7 @@ where
 
 import Bril.Syntax.Expr (Expr, Expr' (..))
 import Bril.Syntax.Expr qualified as Expr
-import Bril.Syntax.Literal (Literal)
+import Bril.Syntax.Literal (Literal, parseForType)
 import Bril.Syntax.Type (Type)
 import Control.Applicative ((<|>))
 import Data.Aeson
@@ -145,7 +145,7 @@ parseGuard obj = do
 parseConst :: Object -> Parser Instr
 parseConst obj = do
   (dest, ty) <- parseDest obj
-  val <- obj .: "value"
+  val <- parseForType ty =<< obj .: "value"
   pure $ Assign dest ty (Const val)
 
 instance FromJSON Instr where
