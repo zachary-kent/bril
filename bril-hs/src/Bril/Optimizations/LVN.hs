@@ -36,15 +36,16 @@ canonicalizeUses = traverse Table.canonicalHome
 
 runOnInstrs :: (State Table :> es) => [Instr] -> Eff es [Instr]
 runOnInstrs [] = pure []
-runOnInstrs (instr@(Assign x ty e) : instrs) = do
+runOnInstrs (Assign x ty e : instrs) = do
   value <- Table.valueFromExpr e
   gets (Table.lookupValue value) >>= \case
     Just (num, canonical) -> do
       Table.setVNForVar x num
       (Assign x ty canonical :) <$> runOnInstrs instrs
     Nothing -> do
+      e' <- gets (Table.exprFromValue value)
       Table.insertValue x value
-      (:) <$> canonicalizeUses instr <*> runOnInstrs instrs
+      (Assign x ty e' :) <$> runOnInstrs instrs
 runOnInstrs (instr : instrs) = (:) <$> canonicalizeUses instr <*> runOnInstrs instrs
 
 runOnBasicBlock :: BasicBlock -> BasicBlock

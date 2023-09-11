@@ -1,15 +1,13 @@
-{-# OPTIONS_GHC -Wno-unused-top-binds #-}
-
 module Bril.Optimizations.LVN.Table
   ( Table,
     Value,
     canonicalHome,
-    lookupVN,
     setVNForVar,
     lookupValue,
     insertValue,
     empty,
     valueFromExpr,
+    exprFromValue,
   )
 where
 
@@ -17,7 +15,7 @@ import Bril.Syntax.Expr (Expr, Expr' (..))
 import Bril.Syntax.Expr qualified as Expr
 import Bril.Syntax.Literal (Literal)
 import Control.Monad (guard)
-import Data.Functor
+import Data.Functor (void)
 import Data.List (find)
 import Data.Maybe (fromJust, listToMaybe, mapMaybe)
 import Data.Text (Text)
@@ -33,9 +31,6 @@ data Entry = Entry
     _value :: Maybe Value,
     _var :: Text
   }
-
-hasVN :: Integer -> Entry -> Bool
-hasVN vn Entry {_number} = vn == _number
 
 makeLenses ''Entry
 
@@ -112,6 +107,12 @@ valueFromExpr e = do
   e' <- traverse lookupVN e
   tbl <- get
   pure $ maybe e' Const (constFold tbl e')
+
+exprFromValue :: Value -> Table -> Expr
+exprFromValue v tbl =
+  case v of
+    Const lit -> Const lit
+    _ -> fmap (\vn -> view var $ lookupEntryForVN vn tbl) v
 
 lookupValue :: Value -> Table -> Maybe (Integer, Expr)
 lookupValue (Id x) tbl = pure (x, expr)
