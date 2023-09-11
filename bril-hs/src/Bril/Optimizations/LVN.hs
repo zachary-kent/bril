@@ -37,7 +37,7 @@ canonicalizeUses = traverse Table.canonicalHome
 runOnInstrs :: (State Table :> es) => [Instr] -> Eff es [Instr]
 runOnInstrs [] = pure []
 runOnInstrs (instr@(Assign x ty e) : instrs) = do
-  value <- traverse Table.lookupVN e
+  value <- Table.valueFromExpr e
   gets (Table.lookupValue value) >>= \case
     Just (num, canonical) -> do
       Table.setVNForVar x num

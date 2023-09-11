@@ -9,10 +9,13 @@ module Bril.Optimizations.LVN.Table
     lookupValue,
     insertValue,
     empty,
+    valueFromExpr,
   )
 where
 
 import Bril.Syntax.Expr (Expr, Expr' (..))
+import Bril.Syntax.Expr qualified as Expr
+import Bril.Syntax.Literal (Literal)
 import Control.Monad (guard)
 import Data.Functor
 import Data.List (find)
@@ -50,8 +53,11 @@ freshVN = do
   modify (nextNum +~ 1)
   pure vn
 
-lookupEntryForVN :: Integer -> [Entry] -> Entry
-lookupEntryForVN num = fromJust . find \entry -> num == entry ^. number
+lookupEntryForVN :: Integer -> Table -> Entry
+lookupEntryForVN num =
+  fromJust
+    . find (\entry -> num == entry ^. number)
+    . view entries
 
 setVNForVar :: (State Table :> es) => Text -> Integer -> Eff es ()
 setVNForVar x vn = do
@@ -76,9 +82,9 @@ insertMaybeValue x v = do
   pure entry
 
 lookupEntryForVar :: Text -> Table -> Maybe Entry
-lookupEntryForVar x Table {_entries, _var2num} = do
-  num <- lookup x _var2num
-  pure $ lookupEntryForVN num _entries
+lookupEntryForVar x tbl = do
+  num <- lookup x (view var2num tbl)
+  pure $ lookupEntryForVN num tbl
 
 lookupOrCreateEntryForVar :: (State Table :> es) => Text -> Eff es Entry
 lookupOrCreateEntryForVar x = do
@@ -93,10 +99,24 @@ canonicalHome x = view var <$> lookupOrCreateEntryForVar x
 lookupVN :: (State Table :> es) => Text -> Eff es Integer
 lookupVN x = view number <$> lookupOrCreateEntryForVar x
 
+lookupConst :: Integer -> Table -> Maybe Literal
+lookupConst vn tbl = do
+  Const lit <- view value (lookupEntryForVN vn tbl)
+  pure lit
+
+constFold :: Table -> Value -> Maybe Literal
+constFold tbl e = Expr.constFold =<< traverse (`lookupConst` tbl) e
+
+valueFromExpr :: (State Table :> es) => Expr -> Eff es Value
+valueFromExpr e = do
+  e' <- traverse lookupVN e
+  tbl <- get
+  pure $ maybe e' Const (constFold tbl e')
+
 lookupValue :: Value -> Table -> Maybe (Integer, Expr)
-lookupValue (Id x) Table {_var2num, _entries} = pure (x, expr)
+lookupValue (Id x) tbl = pure (x, expr)
   where
-    Entry {_var, _value} = lookupEntryForVN x _entries
+    Entry {_var, _value} = lookupEntryForVN x tbl
     expr = case _value of
       Just (Const lit) -> Const lit
       _ -> Id _var

@@ -1,6 +1,6 @@
-module Bril.Syntax.Expr (Expr, Expr' (..), uses, opcode, isPure) where
+module Bril.Syntax.Expr (Expr, Expr' (..), uses, opcode, isPure, constFold) where
 
-import Bril.Syntax.Literal (Literal)
+import Bril.Syntax.Literal (Literal (..))
 import Data.List (sort)
 import Data.Text (Text)
 
@@ -122,3 +122,29 @@ opcode (PtrAdd _ _) = "ptradd"
 isPure :: Expr' a -> Bool
 isPure (Call _ _) = False
 isPure _ = True
+
+constFold :: Expr' Literal -> Maybe Literal
+constFold (Add (Int x) (Int y)) = pure $ Int $ x + y
+constFold (Mul (Int x) (Int y)) = pure $ Int $ x * y
+constFold (Sub (Int x) (Int y)) = pure $ Int $ x - y
+constFold (Div (Int x) (Int y))
+  | y /= 0 = pure $ Int $ x `div` y
+  | otherwise = Nothing
+constFold (FAdd (Float x) (Float y)) = pure $ Float $ x + y
+constFold (FMul (Float x) (Float y)) = pure $ Float $ x * y
+constFold (FSub (Float x) (Float y)) = pure $ Float $ x - y
+constFold (FDiv (Float x) (Float y)) = pure $ Float $ x / y
+constFold (Eq (Int x) (Int y)) = pure $ Bool $ x == y
+constFold (Lt (Int x) (Int y)) = pure $ Bool $ x < y
+constFold (Gt (Int x) (Int y)) = pure $ Bool $ x > y
+constFold (Le (Int x) (Int y)) = pure $ Bool $ x <= y
+constFold (Ge (Int x) (Int y)) = pure $ Bool $ x >= y
+constFold (FEq (Float x) (Float y)) = pure $ Bool $ x == y
+constFold (FLt (Float x) (Float y)) = pure $ Bool $ x < y
+constFold (FGt (Float x) (Float y)) = pure $ Bool $ x > y
+constFold (FLe (Float x) (Float y)) = pure $ Bool $ x <= y
+constFold (FGe (Float x) (Float y)) = pure $ Bool $ x >= y
+constFold (Not (Bool b)) = pure $ Bool $ not b
+constFold (And (Bool x) (Bool y)) = pure $ Bool $ x && y
+constFold (Or (Bool x) (Bool y)) = pure $ Bool $ x || y
+constFold _ = Nothing

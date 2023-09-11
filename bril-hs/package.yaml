@@ -24,7 +24,6 @@ dependencies:
 - bytestring
 - aeson
 - aeson-pretty
-- scientific
 - text
 - containers
 - optparse-applicative

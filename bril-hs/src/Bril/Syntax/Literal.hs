@@ -2,11 +2,11 @@ module Bril.Syntax.Literal (Literal (..)) where
 
 import Control.Applicative
 import Data.Aeson hiding (Bool)
-import Data.Scientific
+import Data.Int (Int64)
 
 data Literal
-  = Int Integer
-  | Float Scientific
+  = Int Int64
+  | Float Double
   | Bool Bool
   deriving (Show)
 
