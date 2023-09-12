@@ -30,6 +30,7 @@ dependencies:
 - effectful-plugin
 - effectful-th
 - microlens-platform
+- lattices
 
 default-extensions:
 - TypeApplications
@@ -53,6 +54,9 @@ default-extensions:
 - TypeFamilies
 - TypeOperators
 - DataKinds
+- AllowAmbiguousTypes
+- TupleSections
+- MultiParamTypeClasses
 
 ghc-options:
 - -Wall

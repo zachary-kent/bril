@@ -23,6 +23,8 @@ source-repository head
 
 library
   exposed-modules:
+      Bril.CFG
+      Bril.Optimizations.Dataflow
       Bril.Optimizations.DCE.Trivial
       Bril.Optimizations.DCE.Trivial.Global
       Bril.Optimizations.DCE.Trivial.Local
@@ -61,6 +63,9 @@ library
       TypeFamilies
       TypeOperators
       DataKinds
+      AllowAmbiguousTypes
+      TupleSections
+      MultiParamTypeClasses
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -O2 -fplugin=Effectful.Plugin
   build-depends:
       aeson
@@ -71,6 +76,7 @@ library
     , effectful-core
     , effectful-plugin
     , effectful-th
+    , lattices
     , microlens-platform
     , optparse-applicative
     , text
@@ -104,6 +110,9 @@ executable bril-hs-exe
       TypeFamilies
       TypeOperators
       DataKinds
+      AllowAmbiguousTypes
+      TupleSections
+      MultiParamTypeClasses
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -O2 -fplugin=Effectful.Plugin -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       aeson
@@ -115,6 +124,7 @@ executable bril-hs-exe
     , effectful-core
     , effectful-plugin
     , effectful-th
+    , lattices
     , microlens-platform
     , optparse-applicative
     , text
