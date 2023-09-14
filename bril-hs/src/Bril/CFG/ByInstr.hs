@@ -9,8 +9,9 @@ module Bril.CFG.ByInstr
 where
 
 import Bril.CFG (IsCFG (..))
-import Bril.Instr (Label, SurfaceInstr (..))
+import Bril.Instr (Instr, Label, _Label)
 import Bril.Instr qualified as Instr
+import Control.Lens (makeLenses, preview, view, (%~))
 import Data.Foldable (foldl')
 import Data.Function (on)
 import Data.IntMap (IntMap, Key)
@@ -19,12 +20,16 @@ import Data.IntSet (IntSet)
 import Data.IntSet qualified as IntSet
 import Data.Map qualified as Map
 import Data.Maybe (mapMaybe)
-import Lens.Micro.Platform
 
+-- | A node containing exactly one Bril instruction
 data Node = Node
-  { _index :: Key,
-    _instr :: SurfaceInstr,
+  { -- | The zero-based index of this instruction in the instruction stream
+    _index :: Key,
+    -- | The instruction wrapped by this node
+    _instr :: Instr,
+    -- | The indices of the predecessors of this node
     _preds :: IntSet,
+    -- | The indices of the successors of this node
     _succs :: IntSet
   }
   deriving (Show)
@@ -37,10 +42,14 @@ instance Eq Node where
 instance Ord Node where
   compare = compare `on` view index
 
+-- | A mapping from every index in the instruction stream to a CFG
+-- node containing the instruction at that index
 type NodeMap = IntMap Node
 
+-- | A control flow graph where every node contains exactly one instruction
 newtype CFG = CFG NodeMap deriving (Show)
 
+-- | Insert an edge into the CFG
 insertEdge :: Key -> Key -> NodeMap -> NodeMap
 insertEdge src dst =
   IntMap.adjust (succs %~ IntSet.insert dst) src
@@ -52,28 +61,31 @@ instance IsCFG CFG where
   successors Node {_succs} (CFG g) = map (g IntMap.!) $ IntSet.toList _succs
   predecessors Node {_preds} (CFG g) = map (g IntMap.!) $ IntSet.toList _preds
 
-labelToKey :: [SurfaceInstr] -> Label -> Key
-labelToKey instrs = (Map.fromList labels Map.!)
+-- | Look up the index of a label in the instruction stream
+labelToIndex :: [Instr] -> Label -> Key
+labelToIndex instrs = (Map.fromList labels Map.!)
   where
     labels = flip mapMaybe (zip instrs [0 ..]) \(inst, idx) ->
-      case inst of
-        Label l -> pure (l, idx)
-        Instr _ -> Nothing
+      (,idx) <$> preview _Label inst
 
-forest :: [SurfaceInstr] -> NodeMap
+-- | @forest instrs@ is a CFG with a node for every instruction in @instrs@ but no edges
+forest :: [Instr] -> NodeMap
 forest instrs =
   IntMap.fromDistinctAscList $
     flip map (zip [0 ..] instrs) \(idx, inst) ->
       let node = Node idx inst IntSet.empty IntSet.empty
        in (idx, node)
 
-fromList :: [SurfaceInstr] -> CFG
+-- | Construct a CFG from an instruction stream
+fromList :: [Instr] -> CFG
 fromList instrs =
   CFG $ foldl' addEdgesforInstr (forest instrs) (zip [0 ..] instrs)
   where
-    lookupLabel = labelToKey instrs
+    lookupLabel = labelToIndex instrs
     addEdgesforInstr g (src, inst)
-      | dst < length instrs = insertEdge src dst withEdgesForLabels
+      | Instr.fallsThrough inst && dst < length instrs =
+          -- If control flow falls through from this instruction to the next, add an edge
+          insertEdge src dst withEdgesForLabels
       | otherwise = withEdgesForLabels
       where
         dst = succ src

@@ -5,9 +5,9 @@ module Bril.Func
     args,
     ty,
     blocks,
+    instrs,
     formBasicBlock,
     Arg (..),
-    flatten,
     uses,
     size,
   )
@@ -16,35 +16,35 @@ where
 import Bril.BasicBlock (BasicBlock (..))
 import Bril.BasicBlock qualified as BB
 import Bril.Expr (Var)
-import Bril.Instr (Instr, SurfaceInstr (..), isTerminator)
+import Bril.Instr (Instr, Instr' (..), isTerminator)
 import Bril.Instr qualified as Instr
 import Bril.Type (Type (..))
 import Control.Arrow ((>>>))
+import Control.Lens (makeLenses, view)
 import Data.Aeson
 import Data.Maybe
 import Data.Set (Set)
 import Data.Set qualified as Set
 import Data.Text (Text)
-import Lens.Micro.Platform (makeLenses, view)
 
-splitAtTerminators :: [SurfaceInstr] -> [[SurfaceInstr]]
+-- | Split an instruction stream into basic blocks
+splitAtTerminators :: [Instr] -> [[Instr]]
 splitAtTerminators = filter (not . null) . go []
   where
     go curr [] = [reverse curr]
-    go curr (lab@(Label _) : is) = reverse curr : go [lab] is
-    go curr (i@(Instr inst) : is)
-      | isTerminator inst = reverse (i : curr) : go [] is
-      | otherwise = go (i : curr) is
+    go curr (lbl@(Label _) : is) = reverse curr : go [lbl] is
+    go curr (instr : is)
+      | isTerminator instr = reverse (instr : curr) : go [] is
+      | otherwise = go (instr : curr) is
 
-formBasicBlock :: [SurfaceInstr] -> [BasicBlock]
+-- | Form a sequence of basic blocks from a sequence of instructions
+formBasicBlock :: [Instr] -> [BasicBlock]
 formBasicBlock =
   splitAtTerminators >>> map \case
-    Label l : is -> BasicBlock (Just l) $ map concreteInstr is
-    is -> BasicBlock Nothing $ map concreteInstr is
-  where
-    concreteInstr (Instr i) = i
-    concreteInstr (Label _) = error "Impossible: label after beginning of basic block"
+    is@(Label l : _) -> BasicBlock (Just l) is
+    is -> BasicBlock Nothing is
 
+-- | An argument to a function
 data Arg = Arg
   { name :: Text,
     ty :: Type
@@ -59,6 +59,7 @@ instance FromJSON Arg where
   parseJSON = withObject "arg" \obj ->
     Arg <$> obj .: "name" <*> obj .: "type"
 
+-- | A Bril function
 data Func = Func
   { _name :: Text,
     _args :: [Arg],
@@ -69,15 +70,15 @@ data Func = Func
 
 makeLenses ''Func
 
+-- | The instructions in a Bril function
 instrs :: Func -> [Instr]
 instrs = concatMap (view BB.instrs) . view blocks
 
-flatten :: Func -> [SurfaceInstr]
-flatten = concatMap BB.flatten . view blocks
-
+-- | The number of instructions in a Bril function
 size :: Func -> Int
 size = length . instrs
 
+-- | All variables used by some instruction in a Bril function
 uses :: Func -> Set Var
 uses = Set.fromList . concatMap Instr.uses . instrs
 
@@ -96,11 +97,5 @@ instance ToJSON Func where
       maybeToList (("type" .=) <$> _ty)
         ++ [ "name" .= _name,
              "args" .= _args,
-             "instrs" .= blocksToInstrs _blocks
+             "instrs" .= concatMap (map toJSON . view BB.instrs) _blocks
            ]
-    where
-      blocksToInstrs =
-        concatMap \BasicBlock {_name, _instrs} ->
-          case _name of
-            Just block -> object ["label" .= block] : map toJSON _instrs
-            Nothing -> map toJSON _instrs

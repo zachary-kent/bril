@@ -13,6 +13,8 @@ import Bril.Literal (Literal (..))
 import Data.List (sort)
 import Data.Text (Text)
 
+-- | An "abstract" expression in Bril: one that can be stored in a variable,
+-- parameterized over the type of operands.
 data Expr' a
   = Add a a
   | Sub a a
@@ -43,8 +45,10 @@ data Expr' a
   | PtrAdd a a
   deriving (Show, Functor, Foldable, Traversable)
 
+-- | A Bril variable
 type Var = Text
 
+-- | An expression whose operands are variables
 type Expr = Expr' Var
 
 instance (Ord a) => Eq (Expr' a) where
@@ -72,6 +76,7 @@ instance (Ord a) => Eq (Expr' a) where
   Id x == Id y = x == y
   _ == _ = False
 
+-- | The operands used by an expression
 uses :: Expr' a -> [a]
 uses (Add x y) = [x, y]
 uses (Sub x y) = [x, y]
@@ -101,6 +106,7 @@ uses (Alloc x) = [x]
 uses (Load x) = [x]
 uses (PtrAdd base off) = [base, off]
 
+-- | The Bril opcode of an expression
 opcode :: Expr' a -> Text
 opcode (Add _ _) = "add"
 opcode (Sub _ _) = "sub"
@@ -130,10 +136,12 @@ opcode (Alloc _) = "alloc"
 opcode (Load _) = "load"
 opcode (PtrAdd _ _) = "ptradd"
 
+-- | Whether an expression is side effectless
 isPure :: Expr' a -> Bool
 isPure (Call _ _) = False
 isPure _ = True
 
+-- Attempt to constant fold an expression, producing a literal value
 constFold :: Expr' Literal -> Maybe Literal
 constFold (Add (Int x) (Int y)) = pure $ Int $ x + y
 constFold (Mul (Int x) (Int y)) = pure $ Int $ x * y

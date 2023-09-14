@@ -28,8 +28,7 @@ dependencies:
 - optparse-applicative
 - effectful-core
 - effectful-plugin
-- effectful-th
-- microlens-platform
+- lens
 - lattices
 
 default-extensions:

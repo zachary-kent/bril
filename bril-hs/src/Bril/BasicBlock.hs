@@ -2,23 +2,21 @@ module Bril.BasicBlock
   ( BasicBlock (..),
     name,
     instrs,
-    flatten,
   )
 where
 
-import Bril.Instr (Instr, SurfaceInstr (..))
-import Data.Maybe (maybeToList)
+import Bril.Instr (Instr)
+import Control.Lens (makeLenses)
 import Data.Text (Text)
-import Lens.Micro.Platform (makeLenses)
 
+-- | Represents a basic block in a Bril program;
+-- that is, a sequence of instructions that is executed atomically.
 data BasicBlock = BasicBlock
-  { _name :: Maybe Text,
+  { -- | The name of the basic block is the name of the label, if any.
+    _name :: Maybe Text,
+    -- | The instrs in the basic block
     _instrs :: [Instr]
   }
   deriving (Show)
 
 makeLenses ''BasicBlock
-
-flatten :: BasicBlock -> [SurfaceInstr]
-flatten BasicBlock {_name, _instrs} =
-  maybeToList (Label <$> _name) ++ map Instr _instrs

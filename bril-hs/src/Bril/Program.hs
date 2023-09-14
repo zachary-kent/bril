@@ -1,9 +1,10 @@
 module Bril.Program (Program (..), functions) where
 
 import Bril.Func (Func)
+import Control.Lens (makeLenses)
 import Data.Aeson
-import Lens.Micro.Platform (makeLenses)
 
+-- | A Bril program; that is, a series of functions
 newtype Program = Program
   { _functions :: [Func]
   }

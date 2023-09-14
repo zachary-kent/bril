@@ -3,6 +3,7 @@ module Bril.Type (Type (..)) where
 import Data.Aeson hiding (Bool)
 import Data.Aeson.Types hiding (Bool)
 
+-- | The type of a Bril variable
 data Type
   = Int
   | Bool

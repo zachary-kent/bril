@@ -6,12 +6,14 @@ import Data.Aeson hiding (Bool)
 import Data.Aeson.Types (Parser)
 import Data.Int (Int64)
 
+-- | A literal value in bril
 data Literal
   = Int Int64
   | Float Double
   | Bool Bool
   deriving (Show)
 
+-- | Parse a literal, given its expected type
 parseForType :: Type -> Value -> Parser Literal
 parseForType Type.Int j = Int <$> parseJSON j
 parseForType Type.Bool j = Bool <$> parseJSON j

@@ -7,10 +7,10 @@ pipeline = [
     "brili -p {args}",
 ]
 
-[runs.lvn-dce]
+[runs.lvn]
 pipeline = [
     "bril2json",
-    "stack run -- --dce --lvn",
+    "stack run -- --lvn",
     "brili -p {args}",
 ]
 
@@ -18,5 +18,12 @@ pipeline = [
 pipeline = [
     "bril2json",
     "stack run -- --tdce --lvn",
+    "brili -p {args}",
+]
+
+[runs.lvn-dce]
+pipeline = [
+    "bril2json",
+    "stack run -- --dce --lvn",
     "brili -p {args}",
 ]

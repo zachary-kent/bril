@@ -14,6 +14,7 @@ where
 import Bril.Expr (Expr, Expr' (..))
 import Bril.Expr qualified as Expr
 import Bril.Literal (Literal)
+import Control.Lens (makeLenses, set, view, (%~), (+~), (^.))
 import Control.Monad (guard)
 import Data.Functor (void)
 import Data.List (find)
@@ -22,7 +23,6 @@ import Data.Text (Text)
 import Data.Tuple (swap)
 import Effectful
 import Effectful.State.Static.Local
-import Lens.Micro.Platform
 
 type Value = Expr' Integer
 

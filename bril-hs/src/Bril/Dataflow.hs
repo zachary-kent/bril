@@ -21,21 +21,21 @@ class (Eq (Facts p), BoundedMeetSemiLattice (Facts p)) => Params p node where
 analyze :: forall p g. (IsCFG g, Ord (NodeOf g), Params p (NodeOf g)) => g -> NodeOf g -> (Facts p, Facts p)
 analyze g = (go initialFacts (nodes g) !)
   where
-    -- \| Initially, are nodes are associated with the top element of the lattice
+    -- Initially, are nodes are associated with the top element of the lattice
     initialFacts = Map.fromList $ map (,(top, top)) $ nodes g
-    -- \| @go facts w@ iteratively computes the dataflow facts associated with every node of `g`
-    -- \| where `w` is a worklist containing the CFG nodes whose equations may not be satisfied
+    -- @go facts w@ iteratively computes the dataflow facts associated with every node of `g`
+    -- where `w` is a worklist containing the CFG nodes whose equations may not be satisfied
     go facts [] = facts
     go facts (node : w) = go facts' w'
       where
         lookupFacts = snd . (facts !)
-        -- \| The input to the transfer function
+        -- The input to the transfer function
         Meet inputFacts = mconcat $ map (Meet . lookupFacts) $ dependencies node g
-        -- \| The output of the transfer function
+        -- The output of the transfer function
         outputFacts = transfer @p inputFacts node
-        -- \| The updated dataflow facts after processing this node
+        -- The updated dataflow facts after processing this node
         facts' = Map.insert node (inputFacts, outputFacts) facts
-        -- \| The updated worklist after processing this node
+        -- The updated worklist after processing this node
         w'
           | outputFacts == lookupFacts node =
               -- dataflow facts computed at this node did not change
