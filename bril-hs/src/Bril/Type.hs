@@ -1,4 +1,4 @@
-module Bril.Syntax.Type (Type (..)) where
+module Bril.Type (Type (..)) where
 
 import Data.Aeson hiding (Bool)
 import Data.Aeson.Types hiding (Bool)

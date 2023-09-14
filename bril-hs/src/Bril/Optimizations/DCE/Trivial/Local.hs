@@ -1,9 +1,12 @@
 module Bril.Optimizations.DCE.Trivial.Local (runOnFunction) where
 
-import Bril.Syntax.Func (BasicBlock (..), Func (..))
-import Bril.Syntax.Instr (Instr)
-import Bril.Syntax.Instr qualified as Instr
+import Bril.BasicBlock qualified as BB
+import Bril.Func (BasicBlock (..), Func (..))
+import Bril.Func qualified as Func
+import Bril.Instr (Instr)
+import Bril.Instr qualified as Instr
 import Data.Text (Text)
+import Lens.Micro.Platform ((%~))
 
 defReachesUse :: Text -> [Instr] -> Bool
 defReachesUse _ [] = True
@@ -13,7 +16,7 @@ defReachesUse def (i : is)
   | otherwise = defReachesUse def is
 
 runOnBasicBlock :: BasicBlock -> BasicBlock
-runOnBasicBlock bb@(BasicBlock _ instrs) = bb {instrs = iterateToConvergence instrs}
+runOnBasicBlock = BB.instrs %~ iterateToConvergence
   where
     iterateToConvergence is =
       let is' = removeDeadInstrs is
@@ -28,4 +31,4 @@ runOnBasicBlock bb@(BasicBlock _ instrs) = bb {instrs = iterateToConvergence ins
         Nothing -> i : removeDeadInstrs is
 
 runOnFunction :: Func -> Func
-runOnFunction func@Func {blocks} = func {blocks = map runOnBasicBlock blocks}
+runOnFunction = Func.blocks %~ map runOnBasicBlock

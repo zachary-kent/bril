@@ -7,8 +7,8 @@ module Bril.Optimizations.LVN.RenameTable
   )
 where
 
-import Bril.Syntax.Instr (Instr)
-import Bril.Syntax.Instr qualified as Instr
+import Bril.Instr (Instr)
+import Bril.Instr qualified as Instr
 import Data.Foldable qualified as Foldable
 import Data.Map (Map)
 import Data.Map qualified as Map

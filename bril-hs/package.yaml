@@ -57,6 +57,7 @@ default-extensions:
 - AllowAmbiguousTypes
 - TupleSections
 - MultiParamTypeClasses
+- GeneralizedNewtypeDeriving
 
 ghc-options:
 - -Wall

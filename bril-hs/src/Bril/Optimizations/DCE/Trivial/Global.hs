@@ -1,14 +1,16 @@
 module Bril.Optimizations.DCE.Trivial.Global (runOnFunction) where
 
-import Bril.Syntax.Func (BasicBlock (..), Func (..))
-import Bril.Syntax.Func qualified as Func
-import Bril.Syntax.Instr qualified as Instr
+import Bril.BasicBlock qualified as BB
+import Bril.Func (BasicBlock (..), Func (..))
+import Bril.Func qualified as Func
+import Bril.Instr qualified as Instr
 import Data.Set (Set)
 import Data.Set qualified as Set
 import Data.Text (Text)
+import Lens.Micro.Platform ((%~), (&))
 
 runOnBasicBlock :: Set Text -> BasicBlock -> BasicBlock
-runOnBasicBlock uses bb@(BasicBlock _ instrs) = bb {instrs = removeDeadInstrs instrs}
+runOnBasicBlock uses = BB.instrs %~ removeDeadInstrs
   where
     removeDeadInstrs = filter \i ->
       case Instr.def i of
@@ -16,8 +18,8 @@ runOnBasicBlock uses bb@(BasicBlock _ instrs) = bb {instrs = removeDeadInstrs in
         Nothing -> True
 
 runOnFunction :: Func -> Func
-runOnFunction func@Func {blocks} =
+runOnFunction func =
   if Func.size func' < Func.size func then runOnFunction func' else func
   where
-    func' = func {blocks = map (runOnBasicBlock uses) blocks}
+    func' = func & Func.blocks %~ map (runOnBasicBlock uses)
     uses = Func.uses func

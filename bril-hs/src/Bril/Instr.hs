@@ -1,7 +1,10 @@
-module Bril.Syntax.Instr
+module Bril.Instr
   ( Instr,
     Instr' (..),
+    SurfaceInstr (..),
+    Label,
     uses,
+    Labels (..),
     def,
     destType,
     isTerminator,
@@ -10,17 +13,15 @@ module Bril.Syntax.Instr
   )
 where
 
-import Bril.Syntax.Expr (Expr, Expr' (..))
-import Bril.Syntax.Expr qualified as Expr
-import Bril.Syntax.Literal (Literal, parseForType)
-import Bril.Syntax.Type (Type)
+import Bril.Expr (Expr, Expr' (..), Var)
+import Bril.Expr qualified as Expr
+import Bril.Literal (Literal, parseForType)
+import Bril.Type (Type)
 import Control.Applicative ((<|>))
 import Data.Aeson
 import Data.Aeson.Types
 import Data.Maybe (catMaybes, listToMaybe, maybeToList)
 import Data.Text (Text)
-
-type Operand = Text
 
 type Label = Text
 
@@ -39,7 +40,7 @@ data Instr' a
   | Guard a Label
   deriving (Show, Functor, Foldable, Traversable)
 
-type Instr = Instr' Operand
+type Instr = Instr' Var
 
 uses :: Instr' a -> [a]
 uses (Assign _ _ e) = Expr.uses e
@@ -55,7 +56,7 @@ uses Speculate = []
 uses Commit = []
 uses (Guard cond _) = [cond]
 
-def :: Instr' a -> Maybe Operand
+def :: Instr' a -> Maybe Var
 def (Assign x _ _) = pure x
 def _ = Nothing
 
@@ -63,10 +64,13 @@ destType :: Instr' a -> Maybe Type
 destType (Assign _ t _) = pure t
 destType _ = Nothing
 
-labels :: Instr' a -> [Text]
-labels (Jmp l) = [l]
-labels (Br _ t f) = [t, f]
-labels _ = []
+class Labels instr where
+  labels :: instr -> [Text]
+
+instance Labels (Instr' a) where
+  labels (Jmp l) = [l]
+  labels (Br _ t f) = [t, f]
+  labels _ = []
 
 funcs :: Instr' a -> [Text]
 funcs (CallEff func _) = [func]
@@ -191,7 +195,7 @@ instance FromJSON Instr where
         "guard" -> parseGuard obj
         _ -> parseFail "Unknown opcode"
 
-opcode :: Instr -> Text
+opcode :: Instr' a -> Text
 opcode (Assign _ _ e) = Expr.opcode e
 opcode (Jmp _) = "jmp"
 opcode (Br {}) = "br"
@@ -205,11 +209,11 @@ opcode Speculate = "speculate"
 opcode Commit = "commit"
 opcode (Guard _ _) = "guard"
 
-value :: Instr -> Maybe Literal
+value :: Instr' a -> Maybe Literal
 value (Assign _ _ (Const lit)) = pure lit
 value _ = Nothing
 
-isPure :: Instr -> Bool
+isPure :: Instr' a -> Bool
 isPure Nop = True
 isPure (Assign _ _ e) = Expr.isPure e
 isPure _ = False
@@ -230,3 +234,15 @@ instance ToJSON Instr where
             ("type" .=) <$> destType instr,
             ("value" .=) <$> value instr
           ]
+
+data SurfaceInstr = Instr Instr | Label Label
+  deriving (Show)
+
+instance Labels SurfaceInstr where
+  labels (Label _) = []
+  labels (Instr instr) = labels instr
+
+instance FromJSON SurfaceInstr where
+  parseJSON j = parseLabel j <|> Instr <$> parseJSON j
+    where
+      parseLabel = withObject "Label" \obj -> Label <$> obj .: "label"

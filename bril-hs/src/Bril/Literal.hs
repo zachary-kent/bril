@@ -1,7 +1,7 @@
-module Bril.Syntax.Literal (Literal (..), parseForType) where
+module Bril.Literal (Literal (..), parseForType) where
 
-import Bril.Syntax.Type (Type)
-import Bril.Syntax.Type qualified as Type
+import Bril.Type (Type)
+import Bril.Type qualified as Type
 import Data.Aeson hiding (Bool)
 import Data.Aeson.Types (Parser)
 import Data.Int (Int64)

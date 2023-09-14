@@ -23,20 +23,23 @@ source-repository head
 
 library
   exposed-modules:
+      Bril.BasicBlock
       Bril.CFG
-      Bril.Optimizations.Dataflow
+      Bril.CFG.ByInstr
+      Bril.Dataflow
+      Bril.Expr
+      Bril.Func
+      Bril.Instr
+      Bril.Literal
+      Bril.Optimizations.DCE
       Bril.Optimizations.DCE.Trivial
       Bril.Optimizations.DCE.Trivial.Global
       Bril.Optimizations.DCE.Trivial.Local
       Bril.Optimizations.LVN
       Bril.Optimizations.LVN.RenameTable
       Bril.Optimizations.LVN.Table
-      Bril.Syntax.Expr
-      Bril.Syntax.Func
-      Bril.Syntax.Instr
-      Bril.Syntax.Literal
-      Bril.Syntax.Program
-      Bril.Syntax.Type
+      Bril.Program
+      Bril.Type
   other-modules:
       Paths_bril_hs
   hs-source-dirs:
@@ -66,6 +69,7 @@ library
       AllowAmbiguousTypes
       TupleSections
       MultiParamTypeClasses
+      GeneralizedNewtypeDeriving
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -O2 -fplugin=Effectful.Plugin
   build-depends:
       aeson
@@ -113,6 +117,7 @@ executable bril-hs-exe
       AllowAmbiguousTypes
       TupleSections
       MultiParamTypeClasses
+      GeneralizedNewtypeDeriving
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -O2 -fplugin=Effectful.Plugin -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       aeson

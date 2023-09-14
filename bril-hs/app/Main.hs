@@ -1,8 +1,9 @@
 module Main (main) where
 
+import Bril.Optimizations.DCE qualified as DCE
 import Bril.Optimizations.DCE.Trivial qualified as TDCE
 import Bril.Optimizations.LVN qualified as LVN
-import Bril.Syntax.Program (Program)
+import Bril.Program (Program)
 import Control.Monad (guard)
 import Data.Aeson (eitherDecode)
 import Data.Aeson.Encode.Pretty (encodePretty)
@@ -17,6 +18,7 @@ import System.IO
 
 data Options = Options
   { tdce :: Bool,
+    dce :: Bool,
     lvn :: Bool
   }
 
@@ -24,14 +26,16 @@ options :: Parser Options
 options =
   Options
     <$> switch (long "tdce" <> help "Perform trivial dead code elimination")
+    <*> switch (long "dce" <> help "Perform dead code elimination")
     <*> switch (long "lvn" <> help "Perform local value numbering")
 
 type Optimization = Program -> Program
 
 requestedOptimizations :: Options -> [Optimization]
-requestedOptimizations Options {tdce, lvn} =
+requestedOptimizations Options {tdce, dce, lvn} =
   catMaybes
     [ guard lvn $> LVN.runOnProgram,
+      guard dce $> DCE.runOnProgram,
       guard tdce $> TDCE.runOnProgram
     ]
 

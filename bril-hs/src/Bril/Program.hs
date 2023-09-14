@@ -1,12 +1,15 @@
-module Bril.Syntax.Program (Program (..)) where
+module Bril.Program (Program (..), functions) where
 
-import Bril.Syntax.Func (Func)
+import Bril.Func (Func)
 import Data.Aeson
+import Lens.Micro.Platform (makeLenses)
 
 newtype Program = Program
-  { functions :: [Func]
+  { _functions :: [Func]
   }
   deriving (Show)
+
+makeLenses ''Program
 
 instance FromJSON Program where
   parseJSON = withObject "program" \obj ->

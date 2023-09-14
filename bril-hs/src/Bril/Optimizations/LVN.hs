@@ -1,16 +1,20 @@
 module Bril.Optimizations.LVN (runOnProgram) where
 
+import Bril.BasicBlock qualified as BB
+import Bril.Func (BasicBlock (..), Func (..))
+import Bril.Func qualified as Func
+import Bril.Instr (Instr, Instr' (..))
+import Bril.Instr qualified as Instr
 import Bril.Optimizations.LVN.RenameTable (RenameTable)
 import Bril.Optimizations.LVN.RenameTable qualified as RenameTable
 import Bril.Optimizations.LVN.Table (Table)
 import Bril.Optimizations.LVN.Table qualified as Table
-import Bril.Syntax.Func (BasicBlock (..), Func (..))
-import Bril.Syntax.Instr (Instr, Instr' (..))
-import Bril.Syntax.Instr qualified as Instr
-import Bril.Syntax.Program (Program (..))
+import Bril.Program (Program (..))
+import Bril.Program qualified as Program
 import Data.Text (Text)
 import Effectful
 import Effectful.State.Static.Local
+import Lens.Micro.Platform
 
 renameUses :: (Functor f) => RenameTable -> f Text -> f Text
 renameUses renames = fmap (`RenameTable.find` renames)
@@ -49,11 +53,10 @@ runOnInstrs (Assign x ty e : instrs) = do
 runOnInstrs (instr : instrs) = (:) <$> canonicalizeUses instr <*> runOnInstrs instrs
 
 runOnBasicBlock :: BasicBlock -> BasicBlock
-runOnBasicBlock bb@BasicBlock {instrs} =
-  bb {instrs = runPureEff $ evalState Table.empty $ runOnInstrs $ renameVariables instrs}
+runOnBasicBlock = BB.instrs %~ runPureEff . evalState Table.empty . runOnInstrs . renameVariables
 
 runOnFunction :: Func -> Func
-runOnFunction func@Func {blocks} = func {blocks = map runOnBasicBlock blocks}
+runOnFunction = Func.blocks %~ map runOnBasicBlock
 
 runOnProgram :: Program -> Program
-runOnProgram prog@Program {functions} = prog {functions = map runOnFunction functions}
+runOnProgram = Program.functions %~ map runOnFunction

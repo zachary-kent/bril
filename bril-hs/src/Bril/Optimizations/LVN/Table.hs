@@ -11,9 +11,9 @@ module Bril.Optimizations.LVN.Table
   )
 where
 
-import Bril.Syntax.Expr (Expr, Expr' (..))
-import Bril.Syntax.Expr qualified as Expr
-import Bril.Syntax.Literal (Literal)
+import Bril.Expr (Expr, Expr' (..))
+import Bril.Expr qualified as Expr
+import Bril.Literal (Literal)
 import Control.Monad (guard)
 import Data.Functor (void)
 import Data.List (find)

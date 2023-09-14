@@ -1,17 +1,31 @@
-module Bril.Syntax.Func (BasicBlock (..), Func (..), Arg (..), uses, size) where
+module Bril.Func
+  ( BasicBlock (..),
+    Func (..),
+    name,
+    args,
+    ty,
+    blocks,
+    formBasicBlock,
+    Arg (..),
+    flatten,
+    uses,
+    size,
+  )
+where
 
-import Bril.Syntax.Instr (Instr, isTerminator)
-import Bril.Syntax.Instr qualified as Instr
-import Bril.Syntax.Type (Type (..))
-import Control.Applicative ((<|>))
+import Bril.BasicBlock (BasicBlock (..))
+import Bril.BasicBlock qualified as BB
+import Bril.Expr (Var)
+import Bril.Instr (Instr, SurfaceInstr (..), isTerminator)
+import Bril.Instr qualified as Instr
+import Bril.Type (Type (..))
 import Control.Arrow ((>>>))
 import Data.Aeson
 import Data.Maybe
 import Data.Set (Set)
 import Data.Set qualified as Set
 import Data.Text (Text)
-
-data SurfaceInstr = Instr Instr | Label Text
+import Lens.Micro.Platform (makeLenses, view)
 
 splitAtTerminators :: [SurfaceInstr] -> [[SurfaceInstr]]
 splitAtTerminators = filter (not . null) . go []
@@ -31,11 +45,6 @@ formBasicBlock =
     concreteInstr (Instr i) = i
     concreteInstr (Label _) = error "Impossible: label after beginning of basic block"
 
-instance FromJSON SurfaceInstr where
-  parseJSON j = parseLabel j <|> Instr <$> parseJSON j
-    where
-      parseLabel = withObject "Label" \obj -> Label <$> obj .: "label"
-
 data Arg = Arg
   { name :: Text,
     ty :: Type
@@ -50,27 +59,26 @@ instance FromJSON Arg where
   parseJSON = withObject "arg" \obj ->
     Arg <$> obj .: "name" <*> obj .: "type"
 
-data BasicBlock = BasicBlock
-  { name :: Maybe Text,
-    instrs :: [Instr]
+data Func = Func
+  { _name :: Text,
+    _args :: [Arg],
+    _ty :: Maybe Type,
+    _blocks :: [BasicBlock]
   }
   deriving (Show)
 
-data Func = Func
-  { name :: Text,
-    args :: [Arg],
-    ty :: Maybe Type,
-    blocks :: [BasicBlock]
-  }
-  deriving (Show)
+makeLenses ''Func
 
 instrs :: Func -> [Instr]
-instrs Func {blocks} = concatMap (\BasicBlock {instrs = is} -> is) blocks
+instrs = concatMap (view BB.instrs) . view blocks
+
+flatten :: Func -> [SurfaceInstr]
+flatten = concatMap BB.flatten . view blocks
 
 size :: Func -> Int
 size = length . instrs
 
-uses :: Func -> Set Text
+uses :: Func -> Set Var
 uses = Set.fromList . concatMap Instr.uses . instrs
 
 instance FromJSON Func where
@@ -83,16 +91,16 @@ instance FromJSON Func where
         <*> (formBasicBlock <$> obj .: "instrs")
 
 instance ToJSON Func where
-  toJSON (Func name args ty blocks) =
+  toJSON Func {_name, _args, _ty, _blocks} =
     object $
-      maybeToList (("type" .=) <$> ty)
-        ++ [ "name" .= name,
-             "args" .= args,
-             "instrs" .= blocksToInstrs blocks
+      maybeToList (("type" .=) <$> _ty)
+        ++ [ "name" .= _name,
+             "args" .= _args,
+             "instrs" .= blocksToInstrs _blocks
            ]
     where
       blocksToInstrs =
-        concatMap \(BasicBlock bb is) ->
-          case bb of
-            Just block -> object ["label" .= block] : map toJSON is
-            Nothing -> map toJSON is
+        concatMap \BasicBlock {_name, _instrs} ->
+          case _name of
+            Just block -> object ["label" .= block] : map toJSON _instrs
+            Nothing -> map toJSON _instrs

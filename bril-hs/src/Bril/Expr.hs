@@ -1,6 +1,15 @@
-module Bril.Syntax.Expr (Expr, Expr' (..), uses, opcode, isPure, constFold) where
+module Bril.Expr
+  ( Var,
+    Expr' (..),
+    Expr,
+    uses,
+    opcode,
+    isPure,
+    constFold,
+  )
+where
 
-import Bril.Syntax.Literal (Literal (..))
+import Bril.Literal (Literal (..))
 import Data.List (sort)
 import Data.Text (Text)
 
@@ -34,7 +43,9 @@ data Expr' a
   | PtrAdd a a
   deriving (Show, Functor, Foldable, Traversable)
 
-type Expr = Expr' Text
+type Var = Text
+
+type Expr = Expr' Var
 
 instance (Ord a) => Eq (Expr' a) where
   Add x y == Add m n = sort [x, y] == sort [m, n]

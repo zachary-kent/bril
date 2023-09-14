@@ -1,15 +1,15 @@
-module Bril.CFG (CFG (..)) where
+module Bril.CFG (IsCFG (..)) where
 
 -- | Described the operations that can be performed on an immutable control flow graph
-class CFG a where
+class IsCFG a where
   -- | The type of nodes in the CFG
-  type Node a
+  type NodeOf a
 
   -- | A list of all nodes in the CFG
-  nodes :: a -> [Node a]
+  nodes :: a -> [NodeOf a]
 
   -- | @succs node g@ is a list of all the successors of `node` in `g`
-  succs :: Node a -> a -> [Node a]
+  successors :: NodeOf a -> a -> [NodeOf a]
 
   -- | @preds node g@ is a list of all the predecessors of `node` in `g`
-  preds :: Node a -> a -> [Node a]
+  predecessors :: NodeOf a -> a -> [NodeOf a]
