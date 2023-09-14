@@ -9,11 +9,16 @@ import Data.Map qualified as Map
 -- | The direction of an analysis
 data Dir = Foward | Backward
 
--- | Represents the parameters to a dataflow analysis such where an instance of `Params p node`
--- implements the parameters of a dataflow analysis of type `p` over nodes in the CFG of type `node
+-- | Represents the parameters to a dataflow analysis such where an instance of @Params p node@
+-- implements the parameters of a dataflow analysis of type `p` over nodes in the CFG of type `node`
 class (Eq (Facts p), BoundedMeetSemiLattice (Facts p)) => Params p node where
+  -- | The type of facts computed by this analysis
   type Facts p
+
+  -- | The direction of the analysis
   dir :: Dir
+
+  -- | The transfer function
   transfer :: Facts p -> node -> Facts p
 
 -- | Run a dataflow analysis, associating every node in the CFG with corresponding dataflow facts.

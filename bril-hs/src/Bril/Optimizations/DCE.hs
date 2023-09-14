@@ -28,11 +28,11 @@ instance Lattice LiveVars where
 instance BoundedMeetSemiLattice LiveVars where
   top = LiveVars mempty
 
--- | An uninhabited type used as a tag for DCE
-data DCE
+-- | An uninhabited type used as a tag for liveness analysis
+data Liveness
 
-instance Dataflow.Params DCE CFG.Node where
-  type Facts DCE = LiveVars
+instance Dataflow.Params Liveness CFG.Node where
+  type Facts Liveness = LiveVars
   dir = Dataflow.Backward
   transfer (LiveVars liveOut) node =
     LiveVars $ case Instr.def instr of
@@ -76,7 +76,7 @@ runOnFunction func = func & Func.blocks .~ blocks
       pure instr
     instrs = Func.instrs func
     cfg = CFG.fromList instrs
-    facts = Dataflow.analyze @DCE cfg
+    facts = Dataflow.analyze @Liveness cfg
 
 runOnProgram :: Program -> Program
 runOnProgram = Program.functions %~ map runOnFunction
