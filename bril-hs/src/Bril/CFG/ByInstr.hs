@@ -1,5 +1,6 @@
 module Bril.CFG.ByInstr
   ( Node,
+    CFG,
     index,
     instr,
     preds,

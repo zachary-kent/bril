@@ -1,6 +1,7 @@
 module Bril.Optimizations.DCE (runOnProgram) where
 
 import Bril.CFG (IsCFG (nodes))
+import Bril.CFG.ByInstr (CFG)
 import Bril.CFG.ByInstr qualified as CFG
 import Bril.Dataflow (Union (..))
 import Bril.Dataflow qualified as Dataflow
@@ -19,7 +20,7 @@ import Data.Set qualified as Set
 -- | An uninhabited type used as a tag for liveness analysis
 data Liveness
 
-instance Dataflow.Params Liveness CFG.Node where
+instance Dataflow.Params Liveness CFG where
   type Facts Liveness = Dataflow.Union Var
   dir = Dataflow.Backward
   transfer (Union liveOut) node =

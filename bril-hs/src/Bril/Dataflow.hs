@@ -24,7 +24,7 @@ data Dir = Foward | Backward
 
 -- | Represents the parameters to a dataflow analysis such where an instance of @Params p node@
 -- implements the parameters of a dataflow analysis of type `p` over nodes in the CFG of type `node`
-class (Eq (Facts p), BoundedMeetSemiLattice (Facts p)) => Params p node where
+class (Eq (Facts p), BoundedMeetSemiLattice (Facts p)) => Params p g where
   -- | The type of facts computed by this analysis
   type Facts p
 
@@ -32,11 +32,11 @@ class (Eq (Facts p), BoundedMeetSemiLattice (Facts p)) => Params p node where
   dir :: Dir
 
   -- | The transfer function
-  transfer :: Facts p -> node -> Facts p
+  transfer :: Facts p -> NodeOf g -> Facts p
 
 -- | Run a dataflow analysis, associating every node in the CFG with corresponding dataflow facts.
 -- That is, @analyze g node@ are the dataflow facts associated with node `node` in CFG `g`.
-analyze :: forall p g. (IsCFG g, Ord (NodeOf g), Params p (NodeOf g)) => g -> NodeOf g -> (Facts p, Facts p)
+analyze :: forall p g. (IsCFG g, Ord (NodeOf g), Params p g) => g -> NodeOf g -> (Facts p, Facts p)
 analyze g = (go initialFacts (nodes g) !)
   where
     -- Initially, are nodes are associated with the top element of the lattice
@@ -50,7 +50,7 @@ analyze g = (go initialFacts (nodes g) !)
         -- The input to the transfer function
         Meet inputFacts = mconcat $ map (Meet . lookupFacts) $ dependencies node g
         -- The output of the transfer function
-        outputFacts = transfer @p inputFacts node
+        outputFacts = transfer @p @g inputFacts node
         -- The updated dataflow facts after processing this node
         facts' = Map.insert node (inputFacts, outputFacts) facts
         -- The updated worklist after processing this node
@@ -63,6 +63,6 @@ analyze g = (go initialFacts (nodes g) !)
               -- Add the dependents of this node to the worklist
               w `List.union` dependents node g
     (dependencies, dependents) =
-      case dir @p @(NodeOf g) of
+      case dir @p @g of
         Foward -> (predecessors, successors)
         Backward -> (successors, predecessors)
