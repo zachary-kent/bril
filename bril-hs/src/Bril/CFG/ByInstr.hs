@@ -9,7 +9,7 @@ module Bril.CFG.ByInstr
   )
 where
 
-import Bril.CFG (IsCFG (..))
+import Bril.CFG (IsCFG (..), IsNode (..))
 import Bril.Instr (Instr, Label, _Label)
 import Bril.Instr qualified as Instr
 import Control.Lens (makeLenses, preview, view, (%~))
@@ -56,11 +56,16 @@ insertEdge src dst =
   IntMap.adjust (succs %~ IntSet.insert dst) src
     . IntMap.adjust (preds %~ IntSet.insert src) dst
 
+instance IsNode Node where
+  isStart Node {_index} = _index == 0
+
 instance IsCFG CFG where
   type NodeOf CFG = Node
   nodes (CFG g) = IntMap.elems g
   successors Node {_succs} (CFG g) = map (g IntMap.!) $ IntSet.toList _succs
   predecessors Node {_preds} (CFG g) = map (g IntMap.!) $ IntSet.toList _preds
+
+  start (CFG g) = snd <$> IntMap.lookupMin g
 
 -- | Look up the index of a label in the instruction stream
 labelToIndex :: [Instr] -> Label -> Key

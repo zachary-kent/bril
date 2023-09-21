@@ -1,4 +1,13 @@
-module Bril.CFG (IsCFG (..)) where
+module Bril.CFG (IsNode (..), IsCFG (..), reachable) where
+
+import Data.Foldable (foldl')
+import Data.Set (Set)
+import Data.Set qualified as Set
+
+-- | Describes a CFG node
+class IsNode a where
+  -- | Whether this node is the start node in the CFG
+  isStart :: a -> Bool
 
 -- | Described the operations that can be performed on an immutable control flow graph
 class IsCFG a where
@@ -13,3 +22,14 @@ class IsCFG a where
 
   -- | @preds node g@ is a list of all the predecessors of `node` in `g`
   predecessors :: NodeOf a -> a -> [NodeOf a]
+
+  -- | @start g@ is the start node of `g`, if any
+  start :: a -> Maybe (NodeOf a)
+
+-- | @reachable start cfg@ are the nodes in `cfg` reachable from `start`
+reachable :: (Ord (NodeOf g), IsCFG g) => NodeOf g -> g -> Set (NodeOf g)
+reachable src g = visit Set.empty src
+  where
+    visit visited node
+      | node `Set.member` visited = visited
+      | otherwise = foldl' visit (Set.insert node visited) $ successors node g

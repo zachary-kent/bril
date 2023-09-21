@@ -27,6 +27,7 @@ library
       Bril.CFG
       Bril.CFG.ByInstr
       Bril.Dataflow
+      Bril.Dominator
       Bril.Expr
       Bril.Func
       Bril.Instr
