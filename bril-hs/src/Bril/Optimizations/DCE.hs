@@ -1,8 +1,8 @@
 module Bril.Optimizations.DCE (runOnProgram) where
 
-import Algebra.Lattice
 import Bril.CFG (IsCFG (nodes))
 import Bril.CFG.ByInstr qualified as CFG
+import Bril.Dataflow (Union (..))
 import Bril.Dataflow qualified as Dataflow
 import Bril.Expr (Var)
 import Bril.Func (Func)
@@ -14,28 +14,16 @@ import Bril.Program qualified as Program
 import Control.Lens ((%~), (&), (.~), (^.))
 import Control.Monad (guard)
 import Data.Maybe (mapMaybe)
-import Data.Set (Set)
 import Data.Set qualified as Set
-
--- | A set of variables
-newtype LiveVars = LiveVars (Set Var)
-  deriving (Semigroup, Monoid, Eq, Show)
-
-instance Lattice LiveVars where
-  LiveVars xs \/ LiveVars ys = LiveVars $ xs `Set.intersection` ys
-  LiveVars xs /\ LiveVars ys = LiveVars $ xs `Set.union` ys
-
-instance BoundedMeetSemiLattice LiveVars where
-  top = LiveVars mempty
 
 -- | An uninhabited type used as a tag for liveness analysis
 data Liveness
 
 instance Dataflow.Params Liveness CFG.Node where
-  type Facts Liveness = LiveVars
+  type Facts Liveness = Dataflow.Union Var
   dir = Dataflow.Backward
-  transfer (LiveVars liveOut) node =
-    LiveVars $ case Instr.def instr of
+  transfer (Union liveOut) node =
+    Union $ case Instr.def instr of
       Just x ->
         if x `Set.member` liveOut || not (Instr.isPure instr)
           then {- If the variable defined by this instruction is live-out
@@ -54,8 +42,8 @@ instance Dataflow.Params Liveness CFG.Node where
 -- | @isLive liveOut instr@ is @True@ iff @instr@
 -- cannot be deleted; that is, it is live given
 -- the set `liveOut` of variables live out at `instr`
-isLive :: LiveVars -> Instr -> Bool
-isLive (LiveVars liveOut) instr
+isLive :: Union Var -> Instr -> Bool
+isLive (Union liveOut) instr
   | not (Instr.isPure instr) =
       -- We cannot delete this instruction if it has side effects
       True

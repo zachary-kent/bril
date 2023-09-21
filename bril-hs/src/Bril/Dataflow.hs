@@ -1,10 +1,23 @@
-module Bril.Dataflow (Dir (..), Params (..), analyze) where
+module Bril.Dataflow (Union (..), Dir (..), Params (..), analyze) where
 
 import Algebra.Lattice
 import Bril.CFG
 import Data.List qualified as List
 import Data.Map ((!))
 import Data.Map qualified as Map
+import Data.Set (Set)
+import Data.Set qualified as Set
+
+-- | A newtype representing sets ordered by the superset relation
+newtype Union a = Union (Set a)
+  deriving (Semigroup, Monoid, Eq, Show)
+
+instance (Ord a) => Lattice (Union a) where
+  Union xs \/ Union ys = Union $ xs `Set.intersection` ys
+  Union xs /\ Union ys = Union $ xs `Set.union` ys
+
+instance (Ord a) => BoundedMeetSemiLattice (Union a) where
+  top = Union mempty
 
 -- | The direction of an analysis
 data Dir = Foward | Backward
