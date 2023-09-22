@@ -32,6 +32,24 @@ dominators cfg = map (\b -> (b, dominatorsForNode b)) allNodes
             then a == start
             else not $ b `Set.member` CFG.reachableExcluding cfg (Set.singleton a) start
 
+-- | Construct a dominator tree naively as a reference implementation
+dominatorTree :: (IsCFG g, IsNode (NodeOf g), Ord (NodeOf g)) => g -> Dom.Tree (NodeOf g)
+dominatorTree g =
+  case CFG.start g of
+    Nothing -> Dom.Empty
+    Just start -> Dom.Root $ build (Set.toList $ CFG.reachable start g) start
+  where
+    Dom.Relations {idom} = Dom.relations g
+    build univ node =
+      Dom.Node
+        { node,
+          children =
+            univ
+              & filter (node `idom`)
+              & map (build univ)
+              & Set.fromList
+        }
+
 -- | @verifyDominators cfg@ returns `True` iff the dataflow implementation
 -- of dominators agrees with the naive, slow implementation of dominators
 verifyDominators :: (Ord (NodeOf g), IsNode (NodeOf g), IsCFG g) => g -> Bool
@@ -50,12 +68,34 @@ verifyDominatorsForFunction func =
 verifyDominatorsForProgram :: Program -> Bool
 verifyDominatorsForProgram (Program funcs) = all verifyDominatorsForFunction funcs
 
+-- | @verifyDominatorTree cfg@ returns `True` iff the reference and test
+-- implementations of dominator trees agree
+verifyDominatorTree :: (Ord (NodeOf g), IsNode (NodeOf g), IsCFG g) => g -> Bool
+verifyDominatorTree g = dominatorTree g == Dom.tree g
+
+verifyDominatorTreeForFunction :: Func -> Bool
+verifyDominatorTreeForFunction func =
+  func
+    & Func.instrs
+    & ByInstr.fromList
+    & verifyDominatorTree
+
+verifyDominatorTreesForProgram :: Program -> Bool
+verifyDominatorTreesForProgram (Program funcs) = all verifyDominatorTreeForFunction funcs
+
 dominatorTests :: [(String, Program)] -> SpecWith ()
 dominatorTests progs =
   describe "Test Dominators" do
     forM_ progs \(path, prog) -> do
       it ("dominators for " ++ path) do
         verifyDominatorsForProgram prog `shouldBe` True
+
+dominatorTreeTests :: [(String, Program)] -> SpecWith ()
+dominatorTreeTests progs =
+  describe "Test Dominator Trees" do
+    forM_ progs \(path, prog) -> do
+      it ("dominator trees for " ++ path) do
+        verifyDominatorTreesForProgram prog `shouldBe` True
 
 -- | Associate every benchmark file path with its parsed Bril program
 parsePrograms :: IO [(String, Program)]
@@ -70,4 +110,6 @@ parsePrograms = do
 main :: IO ()
 main = do
   progs <- parsePrograms
-  hspec $ dominatorTests progs
+  hspec $ describe "dominance utilities" do
+    dominatorTests progs
+    dominatorTreeTests progs
