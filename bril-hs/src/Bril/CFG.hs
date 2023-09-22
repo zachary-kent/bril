@@ -1,7 +1,7 @@
-module Bril.CFG (IsNode (..), IsCFG (..), reachable) where
+module Bril.CFG (IsNode (..), IsCFG (..), reachable, reachableExcluding) where
 
 import Data.Foldable (foldl')
-import Data.Set (Set)
+import Data.Set (Set, (\\))
 import Data.Set qualified as Set
 
 -- | Describes a CFG node
@@ -26,10 +26,14 @@ class IsCFG a where
   -- | @start g@ is the start node of `g`, if any
   start :: a -> Maybe (NodeOf a)
 
+visit :: (Ord (NodeOf g), IsCFG g) => g -> Set (NodeOf g) -> NodeOf g -> Set (NodeOf g)
+visit g visited node
+  | node `Set.member` visited = visited
+  | otherwise = foldl' (visit g) (Set.insert node visited) $ successors node g
+
 -- | @reachable start cfg@ are the nodes in `cfg` reachable from `start`
 reachable :: (Ord (NodeOf g), IsCFG g) => NodeOf g -> g -> Set (NodeOf g)
-reachable src g = visit Set.empty src
-  where
-    visit visited node
-      | node `Set.member` visited = visited
-      | otherwise = foldl' visit (Set.insert node visited) $ successors node g
+reachable src g = visit g Set.empty src
+
+reachableExcluding :: (Ord (NodeOf g), IsCFG g) => g -> Set (NodeOf g) -> NodeOf g -> Set (NodeOf g)
+reachableExcluding g excluded node = visit g excluded node \\ excluded

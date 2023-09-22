@@ -3,9 +3,9 @@ module Main (main) where
 import Bril.Optimizations.DCE qualified as DCE
 import Bril.Optimizations.DCE.Trivial qualified as TDCE
 import Bril.Optimizations.LVN qualified as LVN
+import Bril.Parse (decodeProgram)
 import Bril.Program (Program)
 import Control.Monad (guard)
-import Data.Aeson (eitherDecode)
 import Data.Aeson.Encode.Pretty (encodePretty)
 import Data.ByteString.Lazy qualified as LBS
 import Data.Foldable (foldl')
@@ -13,8 +13,6 @@ import Data.Function
 import Data.Functor
 import Data.Maybe (catMaybes)
 import Options.Applicative
-import System.Exit
-import System.IO
 
 data Options = Options
   { tdce :: Bool,
@@ -47,21 +45,13 @@ parseOptions = execParser parserInfo
         (options <**> helper)
         (fullDesc <> progDesc "Optimize Bril programs")
 
-decodeProgram :: IO Program
-decodeProgram = do
-  contents <- LBS.getContents
-  case eitherDecode contents of
-    Left err -> do
-      hPutStrLn stderr err
-      exitWith (ExitFailure 1)
-    Right prog -> pure prog
-
 runOptimizations :: [Optimization] -> Program -> Program
 runOptimizations opts prog = foldl' (&) prog opts
 
 main :: IO ()
 main = do
-  prog <- decodeProgram
+  contents <- LBS.getContents
+  prog <- decodeProgram contents
   opts <- parseOptions
   let optimizations = requestedOptimizations opts
   LBS.putStr $ encodePretty $ runOptimizations optimizations prog

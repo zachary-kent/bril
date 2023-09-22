@@ -85,3 +85,17 @@ executables:
     dependencies:
     - bril-hs
 
+tests:
+  bril-hs-test:
+    main:                Spec.hs
+    source-dirs:         test
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - bril-hs
+    - containers
+    - process
+    - hspec
+    - Glob
