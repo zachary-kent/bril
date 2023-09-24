@@ -9,7 +9,7 @@ module Bril.Dominator
   )
 where
 
-import Bril.CFG (IsCFG (..), IsNode (..), reachable)
+import Bril.CFG (IsCFG (..), IsNode (..))
 import Bril.Dataflow (Dir (..), Params (..))
 import Bril.Dataflow qualified as Dataflow
 import Data.Foldable (foldl')
@@ -84,33 +84,30 @@ tree g =
   where
     doms = dominators g
     strictDominators b = Set.delete b $ doms b
-    buildFromRoot root = go root
+    buildFromRoot node =
+      Node
+        { node,
+          children =
+            strictlyDominated
+              & Set.toList
+              & filter (\child -> strictlyDominated `Set.disjoint` strictDominators child)
+              & map buildFromRoot
+              & Set.fromList
+        }
       where
-        reachableFromStart = reachable root g
-        dominatedBy = (foldl' updateForNode initialMap reachableFromStart !)
+        allNodes = nodes g
+        dominatedBy = (foldl' updateForNode initialMap allNodes !)
           where
             updateForNode m dst =
               dst
                 & doms -- All nodes `src` such that `src dom dst`
                 & foldl' (flip $ Map.adjust $ Set.insert dst) m
             initialMap =
-              reachableFromStart
-                & Set.toAscList
+              allNodes
                 & map (,Set.empty)
-                & Map.fromAscList
+                & Map.fromList
         strictlyDominatedBy src = Set.delete src $ dominatedBy src
-        go node =
-          Node
-            { node,
-              children =
-                strictlyDominated
-                  & Set.toList
-                  & filter (\child -> strictlyDominated `Set.disjoint` strictDominators child)
-                  & map go
-                  & Set.fromList
-            }
-          where
-            strictlyDominated = strictlyDominatedBy node
+        strictlyDominated = strictlyDominatedBy node
 
 -- | @frontier node cfg@ are the nodes in `cfg` on the dominance frontier of `node`
 frontier :: (Ord (NodeOf g), IsCFG g) => Tree (NodeOf g) -> g -> Map (NodeOf g) (Set (NodeOf g))

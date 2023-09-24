@@ -9,12 +9,12 @@ module Bril.CFG.ByInstr
   )
 where
 
-import Bril.CFG (IsCFG (..), IsNode (..))
+import Bril.CFG (DynCFG (..), IsCFG (..), IsNode (..), pruneUnreachable)
 import Bril.Instr (Instr, Label, _Label)
 import Bril.Instr qualified as Instr
 import Control.Lens (makeLenses, preview, view, (%~))
 import Data.Foldable (foldl')
-import Data.Function (on)
+import Data.Function (on, (&))
 import Data.IntMap (IntMap, Key)
 import Data.IntMap qualified as IntMap
 import Data.IntSet (IntSet)
@@ -67,6 +67,19 @@ instance IsCFG CFG where
 
   start (CFG g) = snd <$> IntMap.lookupMin g
 
+instance DynCFG CFG where
+  deleteNode Node {_index, _preds, _succs} (CFG cfg) =
+    cfg
+      & deleteIncoming
+      & deleteOutgoing
+      & IntMap.delete _index
+      & CFG
+    where
+      deleteIncoming g =
+        IntSet.foldl' (flip (IntMap.adjust (succs %~ IntSet.delete _index))) g _preds
+      deleteOutgoing g =
+        IntSet.foldl' (flip (IntMap.adjust (preds %~ IntSet.delete _index))) g _succs
+
 -- | Look up the index of a label in the instruction stream
 labelToIndex :: [Instr] -> Label -> Key
 labelToIndex instrs = (Map.fromList labels Map.!)
@@ -85,7 +98,7 @@ forest instrs =
 -- | Construct a CFG from an instruction stream
 fromList :: [Instr] -> CFG
 fromList instrs =
-  CFG $ foldl' addEdgesforInstr (forest instrs) (zip [0 ..] instrs)
+  pruneUnreachable $ CFG $ foldl' addEdgesforInstr (forest instrs) (zip [0 ..] instrs)
   where
     lookupLabel = labelToIndex instrs
     addEdgesforInstr g (src, inst)

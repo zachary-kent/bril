@@ -1,4 +1,12 @@
-module Bril.CFG (IsNode (..), IsCFG (..), reachable, reachableExcluding) where
+module Bril.CFG
+  ( IsNode (..),
+    IsCFG (..),
+    DynCFG (..),
+    reachable,
+    reachableExcluding,
+    pruneUnreachable,
+  )
+where
 
 import Data.Foldable (foldl')
 import Data.Set (Set, (\\))
@@ -26,6 +34,11 @@ class IsCFG a where
   -- | @start g@ is the start node of `g`, if any
   start :: a -> Maybe (NodeOf a)
 
+-- | A "dynamic" CFG, where nodes and edges can be inserted/deleted
+class (IsCFG g) => DynCFG g where
+  -- | @deleteNode u g@ is `g` with node `u` and all of its adjacent edges deleted
+  deleteNode :: NodeOf g -> g -> g
+
 visit :: (Ord (NodeOf g), IsCFG g) => g -> Set (NodeOf g) -> NodeOf g -> Set (NodeOf g)
 visit g visited node
   | node `Set.member` visited = visited
@@ -37,3 +50,11 @@ reachable src g = visit g Set.empty src
 
 reachableExcluding :: (Ord (NodeOf g), IsCFG g) => g -> Set (NodeOf g) -> NodeOf g -> Set (NodeOf g)
 reachableExcluding g excluded node = visit g excluded node \\ excluded
+
+pruneUnreachable :: (DynCFG g, Ord (NodeOf g)) => g -> g
+pruneUnreachable g =
+  case start g of
+    Nothing -> g
+    Just root ->
+      let unreachable = Set.fromList (nodes g) \\ reachable root g
+       in foldl' (flip deleteNode) g unreachable

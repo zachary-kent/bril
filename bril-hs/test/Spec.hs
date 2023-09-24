@@ -40,36 +40,33 @@ dominatorTree :: (IsCFG g, IsNode (NodeOf g), Ord (NodeOf g)) => g -> Dom.Tree (
 dominatorTree g =
   case CFG.start g of
     Nothing -> Dom.Empty
-    Just start -> Dom.Root $ build (Set.toList $ CFG.reachable start g) start
+    Just start -> Dom.Root $ build start
   where
     Dom.Relations {idom} = Dom.relations g
-    build univ node =
+    build node =
       Dom.Node
         { node,
           children =
-            univ
+            g
+              & CFG.nodes
               & filter (node `idom`)
-              & map (build univ)
+              & map build
               & Set.fromList
         }
 
 -- | Compute the dominance frontier
 dominanceFrontier :: (IsNode (NodeOf g), IsCFG g, Ord (NodeOf g)) => g -> Map (NodeOf g) (Set (NodeOf g))
 dominanceFrontier g =
-  case CFG.start g of
-    Nothing -> Map.empty
-    Just src ->
-      let univ = Set.toList $ CFG.reachable src g
-       in univ
-            & map (\a -> (a, dominanceFrontierOfNode univ a))
-            & Map.fromList
+  g
+    & CFG.nodes
+    & map (\a -> (a, dominanceFrontierOfNode a))
+    & Map.fromList
   where
+    allNodes = CFG.nodes g
     Relations {dom} = Dom.relations g
-    dominanceFrontierOfNode univ a =
+    dominanceFrontierOfNode a =
       Set.fromList $
-        filter (\b -> not (a `dom` b) && any (a `dom`) (preds b)) univ
-      where
-        preds b = filter (`elem` univ) $ CFG.predecessors b g
+        filter (\b -> not (a `dom` b) && any (a `dom`) (CFG.predecessors b g)) allNodes
 
 -- | @verifyDominators cfg@ returns `True` iff the dataflow implementation
 -- of dominators agrees with the naive, slow implementation of dominators
