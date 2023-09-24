@@ -14,6 +14,7 @@ import Bril.Program (Program)
 import Bril.Program qualified as Program
 import Control.Lens ((%~), (&), (.~), (^.))
 import Control.Monad (guard)
+import Data.Map ((!))
 import Data.Maybe (mapMaybe)
 import Data.Set (Set)
 import Data.Set qualified as Set
@@ -65,7 +66,7 @@ runOnFunction func = func & Func.blocks .~ blocks
     blocks = Func.formBasicBlock $ mapMaybe removeDeadInstr $ nodes cfg
     removeDeadInstr :: CFG.Node -> Maybe Instr
     removeDeadInstr node = do
-      let (liveOut, _) = facts node
+      let (liveOut, _) = facts ! node
           instr = node ^. CFG.instr
       guard $ isLive liveOut instr
       pure instr

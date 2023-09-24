@@ -3,7 +3,7 @@ module Bril.Dataflow (Dir (..), Params (..), analyze) where
 import Bril.CFG
 import Data.Foldable (foldl')
 import Data.List qualified as List
-import Data.Map ((!))
+import Data.Map (Map, (!))
 import Data.Map qualified as Map
 
 -- | The direction of a dataflow analysis
@@ -24,8 +24,8 @@ data Params facts g = Params
 
 -- | Run a dataflow analysis, associating every node in the CFG with corresponding dataflow facts.
 -- That is, @analyze g node@ are the dataflow facts associated with node `node` in CFG `g`.
-analyze :: forall facts g. (IsCFG g, Ord (NodeOf g), Eq facts) => Params facts g -> g -> NodeOf g -> (facts, facts)
-analyze Params {dir, top, meet, transfer} g = (go initialFacts (nodes g) !)
+analyze :: forall facts g. (IsCFG g, Ord (NodeOf g), Eq facts) => Params facts g -> g -> Map (NodeOf g) (facts, facts)
+analyze Params {dir, top, meet, transfer} g = go initialFacts (nodes g)
   where
     -- Initially, are nodes are associated with the top element of the lattice
     initialFacts = Map.fromList $ map (,(initial, initial)) $ nodes g

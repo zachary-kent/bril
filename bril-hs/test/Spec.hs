@@ -22,8 +22,8 @@ import Test.Hspec
 -- | @dominators cfg@ is an association list mapping every node to the
 -- set of nodes that dominate it, using a naive algorithm. Used as a
 -- reference implementation for hspec
-dominators :: (IsCFG g, Ord (NodeOf g)) => g -> [(NodeOf g, Set (NodeOf g))]
-dominators cfg = map (\b -> (b, dominatorsForNode b)) allNodes
+dominators :: (IsCFG g, Ord (NodeOf g)) => g -> Map (NodeOf g) (Set (NodeOf g))
+dominators cfg = Map.fromList $ map (\b -> (b, dominatorsForNode b)) allNodes
   where
     allNodes = CFG.nodes cfg
     dominatorsForNode b = Set.fromList $ filter (`dom` b) allNodes
@@ -71,10 +71,7 @@ dominanceFrontier g =
 -- | @verifyDominators cfg@ returns `True` iff the dataflow implementation
 -- of dominators agrees with the naive, slow implementation of dominators
 verifyDominators :: (Ord (NodeOf g), IsNode (NodeOf g), IsCFG g) => g -> Bool
-verifyDominators g =
-  all (\(node, doms) -> doms == testDominators node) $ dominators g
-  where
-    testDominators = Dom.dominators g
+verifyDominators g = Dom.dominators g == dominators g
 
 verifyDominatorsForFunction :: Func -> Bool
 verifyDominatorsForFunction func =

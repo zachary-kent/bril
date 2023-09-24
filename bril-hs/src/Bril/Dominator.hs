@@ -39,8 +39,8 @@ params =
     }
 
 -- | @dominators cfg node@ is the set of all nodes in `cfg` that dominate `node`
-dominators :: (IsCFG g, Ord (NodeOf g), IsNode (NodeOf g)) => g -> NodeOf g -> Facts g
-dominators g = snd . Dataflow.analyze params g
+dominators :: (IsCFG g, Ord (NodeOf g), IsNode (NodeOf g)) => g -> Map (NodeOf g) (Facts g)
+dominators = Map.map snd . Dataflow.analyze params
 
 -- | Various dominance relations
 data Relations node = Relations
@@ -57,7 +57,7 @@ relations g =
     dom a b = a `Set.member` doms b
     sdom a b = a /= b && a `dom` b
     idom a b = a `sdom` b && all (\c -> b == c || not (a `sdom` c)) (doms b)
-    doms = dominators g
+    doms = (dominators g !)
 
 -- | A dominance tree, where A is the direct parent of B iff A immediately dominates B
 data Tree node
@@ -82,7 +82,7 @@ tree g =
     Nothing -> Empty
     Just root -> Root $ buildFromRoot root
   where
-    doms = dominators g
+    doms = (dominators g !)
     strictDominators b = Set.delete b $ doms b
     buildFromRoot node =
       Node
