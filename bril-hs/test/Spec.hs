@@ -1,6 +1,7 @@
 import Bril.CFG (IsCFG, IsNode, NodeOf)
 import Bril.CFG qualified as CFG
 import Bril.CFG.ByInstr qualified as ByInstr
+import Bril.Dominator (Relations (..))
 import Bril.Dominator qualified as Dom
 import Bril.Func (Func)
 import Bril.Func qualified as Func
@@ -8,6 +9,8 @@ import Bril.Parse
 import Bril.Program (Program (..))
 import Control.Monad (forM_)
 import Data.Function ((&))
+import Data.Map (Map)
+import Data.Map qualified as Map
 import Data.Set (Set)
 import Data.Set qualified as Set
 import Data.String (fromString)
@@ -50,6 +53,24 @@ dominatorTree g =
               & Set.fromList
         }
 
+-- | Compute the dominance frontier
+dominanceFrontier :: (IsNode (NodeOf g), IsCFG g, Ord (NodeOf g)) => g -> Map (NodeOf g) (Set (NodeOf g))
+dominanceFrontier g =
+  case CFG.start g of
+    Nothing -> Map.empty
+    Just src ->
+      let univ = Set.toList $ CFG.reachable src g
+       in univ
+            & map (\a -> (a, dominanceFrontierOfNode univ a))
+            & Map.fromList
+  where
+    Relations {dom} = Dom.relations g
+    dominanceFrontierOfNode univ a =
+      Set.fromList $
+        filter (\b -> not (a `dom` b) && any (a `dom`) (preds b)) univ
+      where
+        preds b = filter (`elem` univ) $ CFG.predecessors b g
+
 -- | @verifyDominators cfg@ returns `True` iff the dataflow implementation
 -- of dominators agrees with the naive, slow implementation of dominators
 verifyDominators :: (Ord (NodeOf g), IsNode (NodeOf g), IsCFG g) => g -> Bool
@@ -83,6 +104,21 @@ verifyDominatorTreeForFunction func =
 verifyDominatorTreesForProgram :: Program -> Bool
 verifyDominatorTreesForProgram (Program funcs) = all verifyDominatorTreeForFunction funcs
 
+-- | @verifyDominanceFrontier cfg@ returns `True` iff the reference and test
+-- implementations of the dominance frontier agree
+verifyDominanceFrontier :: (Ord (NodeOf g), IsNode (NodeOf g), IsCFG g) => g -> Bool
+verifyDominanceFrontier g = dominanceFrontier g == Dom.frontier (Dom.tree g) g
+
+verifyDominanceFrontierForFunction :: Func -> Bool
+verifyDominanceFrontierForFunction func =
+  func
+    & Func.instrs
+    & ByInstr.fromList
+    & verifyDominanceFrontier
+
+verifyDominanceFrontierForProgram :: Program -> Bool
+verifyDominanceFrontierForProgram (Program funcs) = all verifyDominanceFrontierForFunction funcs
+
 dominatorTests :: [(String, Program)] -> SpecWith ()
 dominatorTests progs =
   describe "Test Dominators" do
@@ -96,6 +132,13 @@ dominatorTreeTests progs =
     forM_ progs \(path, prog) -> do
       it ("dominator trees for " ++ path) do
         verifyDominatorTreesForProgram prog `shouldBe` True
+
+dominanceFrontierTests :: [(String, Program)] -> SpecWith ()
+dominanceFrontierTests progs =
+  describe "Test Dominance Frontier" do
+    forM_ progs \(path, prog) -> do
+      it ("dominance frontier for " ++ path) do
+        verifyDominanceFrontierForProgram prog `shouldBe` True
 
 -- | Associate every benchmark file path with its parsed Bril program
 parsePrograms :: IO [(String, Program)]
@@ -113,3 +156,4 @@ main = do
   hspec $ describe "dominance utilities" do
     dominatorTests progs
     dominatorTreeTests progs
+    dominanceFrontierTests progs

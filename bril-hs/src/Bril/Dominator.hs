@@ -16,8 +16,10 @@ import Data.Foldable (foldl')
 import Data.Function ((&))
 import Data.Map (Map, (!))
 import Data.Map qualified as Map
-import Data.Set (Set)
+import Data.Set (Set, (\\))
 import Data.Set qualified as Set
+import Effectful (runPureEff)
+import Effectful.State.Static.Local
 
 transfer :: (Ord node, IsNode node) => Set node -> node -> Set node
 transfer facts node
@@ -110,18 +112,17 @@ tree g =
           where
             strictlyDominated = strictlyDominatedBy node
 
--- | Compute the dominance frontier
-frontier :: (IsNode (NodeOf g), IsCFG g, Ord (NodeOf g)) => g -> Map (NodeOf g) (Set (NodeOf g))
-frontier g =
-  case start g of
-    Nothing -> Map.empty
-    Just src ->
-      let univ = Set.toList $ reachable src g
-       in univ
-            & map (\a -> (a, dominanceFrontierOfNode univ a))
-            & Map.fromList
+-- | @frontier node cfg@ are the nodes in `cfg` on the dominance frontier of `node`
+frontier :: (Ord (NodeOf g), IsCFG g) => Tree (NodeOf g) -> g -> Map (NodeOf g) (Set (NodeOf g))
+frontier root g =
+  case root of
+    Empty -> Map.empty
+    Root node -> runPureEff $ execState Map.empty $ go node
   where
-    Relations {dom} = relations g
-    dominanceFrontierOfNode univ a =
-      Set.fromList $
-        filter (\b -> not (a `dom` b) && any (a `dom`) (predecessors b g)) univ
+    go Node {node, children} = do
+      (childDoms, childFrontiers) <- unzip <$> traverse go (Set.toList children)
+      let doms = Set.insert node $ Set.unions childDoms
+          succs = Set.fromList $ successors node g
+          rootFrontier = (succs `Set.union` Set.unions childFrontiers) \\ doms
+      modify (Map.insert node rootFrontier)
+      pure (doms, rootFrontier)
