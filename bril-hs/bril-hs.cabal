@@ -40,6 +40,7 @@ library
       Bril.Optimizations.LVN.RenameTable
       Bril.Optimizations.LVN.Table
       Bril.Parse
+      Bril.Phi
       Bril.Program
       Bril.Type
   other-modules:

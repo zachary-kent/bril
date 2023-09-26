@@ -41,8 +41,8 @@ splitAtTerminators = filter (not . null) . go []
 formBasicBlock :: [Instr] -> [BasicBlock]
 formBasicBlock =
   splitAtTerminators >>> map \case
-    is@(Label l : _) -> BasicBlock (Just l) is
-    is -> BasicBlock Nothing is
+    is@(Label l : _) -> BasicBlock (Just l) [] is
+    is -> BasicBlock Nothing [] is
 
 -- | An argument to a function
 data Arg = Arg

@@ -5,10 +5,8 @@ module Bril.Instr
     Label,
     uses,
     def,
-    labels,
     destType,
     isTerminator,
-    fallsThrough,
     opcode,
     isPure,
   )

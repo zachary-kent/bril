@@ -1,12 +1,14 @@
 module Bril.BasicBlock
   ( BasicBlock (..),
     name,
+    phiNodes,
     instrs,
   )
 where
 
 import Bril.CFG (ControlFlow (..))
 import Bril.Instr (Instr)
+import Bril.Phi qualified as Phi
 import Control.Lens (makeLenses, view)
 import Data.Text (Text)
 
@@ -15,6 +17,8 @@ import Data.Text (Text)
 data BasicBlock = BasicBlock
   { -- | The name of the basic block is the name of the label, if any.
     _name :: Maybe Text,
+    -- | The phi nodes at the beginning of this basic block
+    _phiNodes :: [Phi.Node],
     -- | The instrs in the basic block
     _instrs :: [Instr]
   }
