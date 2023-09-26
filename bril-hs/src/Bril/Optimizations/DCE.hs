@@ -63,7 +63,7 @@ isLive liveOut instr
 runOnFunction :: Func -> Func
 runOnFunction func = func & Func.blocks .~ blocks
   where
-    blocks = Func.formBasicBlock $ mapMaybe removeDeadInstr $ nodes cfg
+    blocks = Func.formBasicBlocks $ mapMaybe removeDeadInstr $ nodes cfg
     removeDeadInstr :: CFG.Node Instr -> Maybe Instr
     removeDeadInstr node = do
       let (liveOut, _) = facts ! node

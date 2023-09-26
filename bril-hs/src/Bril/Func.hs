@@ -6,7 +6,7 @@ module Bril.Func
     ty,
     blocks,
     instrs,
-    formBasicBlock,
+    formBasicBlocks,
     Arg (..),
     uses,
     size,
@@ -38,8 +38,8 @@ splitAtTerminators = filter (not . null) . go []
       | otherwise = go (instr : curr) is
 
 -- | Form a sequence of basic blocks from a sequence of instructions
-formBasicBlock :: [Instr] -> [BasicBlock]
-formBasicBlock =
+formBasicBlocks :: [Instr] -> [BasicBlock]
+formBasicBlocks =
   splitAtTerminators >>> map \case
     is@(Label l : _) -> BasicBlock (Just l) [] is
     is -> BasicBlock Nothing [] is
@@ -89,7 +89,7 @@ instance FromJSON Func where
         <$> obj .: "name"
         <*> obj .:? "args" .!= []
         <*> obj .:? "type"
-        <*> (formBasicBlock <$> obj .: "instrs")
+        <*> (formBasicBlocks <$> obj .: "instrs")
 
 instance ToJSON Func where
   toJSON Func {_name, _args, _ty, _blocks} =
@@ -97,5 +97,8 @@ instance ToJSON Func where
       maybeToList (("type" .=) <$> _ty)
         ++ [ "name" .= _name,
              "args" .= _args,
-             "instrs" .= concatMap (map toJSON . view BB.instrs) _blocks
+             "instrs" .= concatMap blockToInstrs _blocks
            ]
+    where
+      blockToInstrs bb =
+        map toJSON (view BB.phiNodes bb) ++ map toJSON (view BB.instrs bb)
