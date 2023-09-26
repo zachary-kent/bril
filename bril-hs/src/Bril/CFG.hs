@@ -1,5 +1,6 @@
 module Bril.CFG
   ( IsNode (..),
+    ControlFlow (..),
     IsCFG (..),
     DynCFG (..),
     reachable,
@@ -11,11 +12,23 @@ where
 import Data.Foldable (foldl')
 import Data.Set (Set, (\\))
 import Data.Set qualified as Set
+import Data.Text (Text)
 
 -- | Describes a CFG node
 class IsNode a where
   -- | Whether this node is the start node in the CFG
   isStart :: a -> Bool
+
+-- | Represents a node in the CFG that transfers control to another node
+class ControlFlow node where
+  -- | The label of a cfg node
+  label :: node -> Maybe Text
+
+  -- | Whether control flow of a node may fall through to the next
+  fallsThrough :: node -> Bool
+
+  -- | All the labels a node references
+  labels :: node -> [Text]
 
 -- | Described the operations that can be performed on an immutable control flow graph
 class IsCFG a where

@@ -25,7 +25,7 @@ library
   exposed-modules:
       Bril.BasicBlock
       Bril.CFG
-      Bril.CFG.ByInstr
+      Bril.CFG.NodeMap
       Bril.Dataflow
       Bril.Dominator
       Bril.Expr

@@ -1,6 +1,6 @@
 import Bril.CFG (IsCFG, IsNode, NodeOf)
 import Bril.CFG qualified as CFG
-import Bril.CFG.ByInstr qualified as ByInstr
+import Bril.CFG.NodeMap qualified as NodeMap
 import Bril.Dominator (Relations (..))
 import Bril.Dominator qualified as Dom
 import Bril.Func (Func)
@@ -77,7 +77,7 @@ verifyDominatorsForFunction :: Func -> Bool
 verifyDominatorsForFunction func =
   func
     & Func.instrs
-    & ByInstr.fromList
+    & NodeMap.fromList
     & verifyDominators
 
 verifyDominatorsForProgram :: Program -> Bool
@@ -92,7 +92,7 @@ verifyDominatorTreeForFunction :: Func -> Bool
 verifyDominatorTreeForFunction func =
   func
     & Func.instrs
-    & ByInstr.fromList
+    & NodeMap.fromList
     & verifyDominatorTree
 
 verifyDominatorTreesForProgram :: Program -> Bool
@@ -107,7 +107,7 @@ verifyDominanceFrontierForFunction :: Func -> Bool
 verifyDominanceFrontierForFunction func =
   func
     & Func.instrs
-    & ByInstr.fromList
+    & NodeMap.fromList
     & verifyDominanceFrontier
 
 verifyDominanceFrontierForProgram :: Program -> Bool

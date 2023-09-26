@@ -14,12 +14,13 @@ module Bril.Instr
   )
 where
 
+import Bril.CFG (ControlFlow (..))
 import Bril.Expr (Expr, Expr' (..), Var)
 import Bril.Expr qualified as Expr
 import Bril.Literal (Literal, parseForType)
 import Bril.Type (Type)
 import Control.Applicative ((<|>))
-import Control.Lens (has, makePrisms)
+import Control.Lens (has, makePrisms, preview)
 import Data.Aeson
 import Data.Aeson.Types
 import Data.Maybe (catMaybes, listToMaybe, maybeToList)
@@ -66,6 +67,19 @@ uses Speculate = []
 uses Commit = []
 uses (Guard cond _) = [cond]
 
+instance ControlFlow (Instr' a) where
+  label = preview _Label
+  fallsThrough instr =
+    -- An instruction transfers control to the next instruction
+    -- if it is a guard (which falls through if the condition is true)
+    -- or the instruction is not a terminator; that is, it does not
+    -- terminate a basic block
+    has _Guard instr || not (isTerminator instr)
+
+  labels (Jmp l) = [l]
+  labels (Br _ t f) = [t, f]
+  labels _ = []
+
 -- | The variable defined by an instruction, if any
 def :: Instr' a -> Maybe Var
 def (Assign x _ _) = pure x
@@ -75,12 +89,6 @@ def _ = Nothing
 destType :: Instr' a -> Maybe Type
 destType (Assign _ t _) = pure t
 destType _ = Nothing
-
--- | All labels referenced by an instruction
-labels :: Instr' a -> [Text]
-labels (Jmp l) = [l]
-labels (Br _ t f) = [t, f]
-labels _ = []
 
 -- | All functions referenced by an instruction
 funcs :: Instr' a -> [Text]
@@ -97,15 +105,6 @@ isTerminator (Jmp _) = True
 isTerminator (Br {}) = True
 isTerminator (Guard _ _) = True
 isTerminator _ = False
-
--- | Whether control flow may be transferred by an instruction to the following instruction
-fallsThrough :: Instr' a -> Bool
-fallsThrough instr =
-  -- An instruction transfers control to the next instruction
-  -- if it is a guard (which falls through if the condition is true)
-  -- or the instruction is not a terminator; that is, it does not
-  -- terminate a basic block
-  has _Guard instr || not (isTerminator instr)
 
 parseUnary :: (Text -> Expr) -> Object -> Parser Instr
 parseUnary unop obj = do

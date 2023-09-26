@@ -1,8 +1,8 @@
 module Bril.Optimizations.DCE (runOnProgram) where
 
 import Bril.CFG (IsCFG (nodes))
-import Bril.CFG.ByInstr (CFG)
-import Bril.CFG.ByInstr qualified as CFG
+import Bril.CFG.NodeMap (CFG)
+import Bril.CFG.NodeMap qualified as CFG
 import Bril.Dataflow (Params (..))
 import Bril.Dataflow qualified as Dataflow
 import Bril.Expr (Var)
@@ -19,7 +19,7 @@ import Data.Maybe (mapMaybe)
 import Data.Set (Set)
 import Data.Set qualified as Set
 
-transfer :: Set Var -> CFG.Node -> Set Var
+transfer :: Set Var -> CFG.Node Instr -> Set Var
 transfer liveOut node =
   case Instr.def instr of
     Just x ->
@@ -34,11 +34,11 @@ transfer liveOut node =
           liveOut
     Nothing -> uses `Set.union` liveOut
   where
-    instr = node ^. CFG.instr
+    instr = node ^. CFG.value
     uses = Set.fromList (Instr.uses instr)
 
 -- | The dataflow parameters for a live variable analysis
-params :: Params (Set Var) CFG
+params :: Params (Set Var) (CFG Instr)
 params =
   Params
     { dir = Dataflow.Backward,
@@ -64,10 +64,10 @@ runOnFunction :: Func -> Func
 runOnFunction func = func & Func.blocks .~ blocks
   where
     blocks = Func.formBasicBlock $ mapMaybe removeDeadInstr $ nodes cfg
-    removeDeadInstr :: CFG.Node -> Maybe Instr
+    removeDeadInstr :: CFG.Node Instr -> Maybe Instr
     removeDeadInstr node = do
       let (liveOut, _) = facts ! node
-          instr = node ^. CFG.instr
+          instr = node ^. CFG.value
       guard $ isLive liveOut instr
       pure instr
     instrs = Func.instrs func

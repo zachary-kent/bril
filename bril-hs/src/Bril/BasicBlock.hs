@@ -5,8 +5,9 @@ module Bril.BasicBlock
   )
 where
 
+import Bril.CFG (ControlFlow (..))
 import Bril.Instr (Instr)
-import Control.Lens (makeLenses)
+import Control.Lens (makeLenses, view)
 import Data.Text (Text)
 
 -- | Represents a basic block in a Bril program;
@@ -20,3 +21,10 @@ data BasicBlock = BasicBlock
   deriving (Show)
 
 makeLenses ''BasicBlock
+
+instance ControlFlow BasicBlock where
+  label = view name
+  fallsThrough BasicBlock {_instrs} = null _instrs || fallsThrough (last _instrs)
+  labels BasicBlock {_instrs}
+    | null _instrs = []
+    | otherwise = labels (last _instrs)
