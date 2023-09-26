@@ -1,4 +1,14 @@
-module Bril.Phi (Edge (..), Node (..)) where
+module Bril.Phi
+  ( Edge (..),
+    Node (..),
+    create,
+    label,
+    var,
+    dest,
+    ty,
+    args,
+  )
+where
 
 import Bril.Expr (Var)
 import Bril.Instr (Label)
@@ -28,6 +38,8 @@ data Node = Node
   }
   deriving (Show)
 
+makeLenses ''Node
+
 instance ToJSON Node where
   toJSON Node {_dest, _ty, _args} =
     object
@@ -36,3 +48,6 @@ instance ToJSON Node where
         "labels" .= map (view label) _args,
         "args" .= map (view var) _args
       ]
+
+create :: Var -> Type -> [Label] -> Node
+create x t = Node x t . map (`Edge` x)

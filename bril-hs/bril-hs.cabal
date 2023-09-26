@@ -42,6 +42,7 @@ library
       Bril.Parse
       Bril.Phi
       Bril.Program
+      Bril.SSA
       Bril.Type
   other-modules:
       Paths_bril_hs

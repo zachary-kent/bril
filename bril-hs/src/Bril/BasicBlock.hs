@@ -3,13 +3,16 @@ module Bril.BasicBlock
     name,
     phiNodes,
     instrs,
+    insertPhi,
   )
 where
 
 import Bril.CFG (ControlFlow (..))
-import Bril.Instr (Instr)
+import Bril.Instr (Instr, Label)
 import Bril.Phi qualified as Phi
-import Control.Lens (makeLenses, view)
+import Control.Lens (makeLenses, view, (%~), (^.))
+import Data.Map (Map)
+import Data.Map qualified as Map
 import Data.Text (Text)
 
 -- | Represents a basic block in a Bril program;
@@ -18,7 +21,7 @@ data BasicBlock = BasicBlock
   { -- | The name of the basic block is the name of the label, if any.
     _name :: Maybe Text,
     -- | The phi nodes at the beginning of this basic block
-    _phiNodes :: [Phi.Node],
+    _phiNodes :: Map Label Phi.Node,
     -- | The instrs in the basic block
     _instrs :: [Instr]
   }
@@ -32,3 +35,6 @@ instance ControlFlow BasicBlock where
   labels BasicBlock {_instrs}
     | null _instrs = []
     | otherwise = labels (last _instrs)
+
+insertPhi :: Phi.Node -> BasicBlock -> BasicBlock
+insertPhi phi = phiNodes %~ Map.insert (phi ^. Phi.dest) phi

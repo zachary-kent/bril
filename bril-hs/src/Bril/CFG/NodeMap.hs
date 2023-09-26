@@ -6,12 +6,18 @@ module Bril.CFG.NodeMap
     preds,
     succs,
     fromList,
+    insertPhi,
   )
 where
 
+import Bril.BasicBlock (BasicBlock)
+import Bril.BasicBlock qualified as BB
 import Bril.CFG (ControlFlow, DynCFG (..), IsCFG (..), IsNode (..), pruneUnreachable)
 import Bril.CFG qualified as CFG
+import Bril.Expr (Var)
 import Bril.Instr (Label)
+import Bril.Phi qualified as Phi
+import Bril.Type (Type)
 import Control.Lens (makeLenses, view, (%~))
 import Data.Foldable (foldl')
 import Data.Function (on, (&))
@@ -110,3 +116,15 @@ fromList instrs =
         dst = succ src
         withEdgesForLabels =
           foldl' (\g' l -> insertEdge src (lookupLabel l) g') g $ CFG.labels inst
+
+modifyValue :: Node a -> (a -> a) -> CFG a -> CFG a
+modifyValue Node {_index} f (CFG g) =
+  CFG $ IntMap.adjust (value %~ f) _index g
+
+insertPhi :: Var -> Type -> Node BasicBlock -> CFG BasicBlock -> CFG BasicBlock
+insertPhi x ty u g = modifyValue u (BB.insertPhi phi) g
+  where
+    phi = Phi.create x ty predecessorLabels
+    predecessorLabels =
+      -- FIXME: add default labels for basic blocks without labels
+      mapMaybe (view (value . BB.name)) (predecessors u g)

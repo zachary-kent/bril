@@ -9,6 +9,7 @@ module Bril.Func
     formBasicBlocks,
     Arg (..),
     uses,
+    vars,
     size,
   )
 where
@@ -22,6 +23,7 @@ import Bril.Type (Type (..))
 import Control.Arrow ((>>>))
 import Control.Lens (makeLenses, view)
 import Data.Aeson
+import Data.Map qualified as Map
 import Data.Maybe
 import Data.Set (Set)
 import Data.Set qualified as Set
@@ -41,8 +43,8 @@ splitAtTerminators = filter (not . null) . go []
 formBasicBlocks :: [Instr] -> [BasicBlock]
 formBasicBlocks =
   splitAtTerminators >>> map \case
-    is@(Label l : _) -> BasicBlock (Just l) [] is
-    is -> BasicBlock Nothing [] is
+    is@(Label l : _) -> BasicBlock (Just l) Map.empty is
+    is -> BasicBlock Nothing Map.empty is
 
 -- | An argument to a function
 data Arg = Arg
@@ -82,6 +84,14 @@ size = length . instrs
 uses :: Func -> Set Var
 uses = Set.fromList . concatMap Instr.uses . instrs
 
+-- | All variables defined in a function
+defs :: Func -> Set Var
+defs = Set.fromList . mapMaybe Instr.def . instrs
+
+-- | All variables referenced in a function
+vars :: Func -> Set Var
+vars func = Set.union (uses func) (defs func)
+
 instance FromJSON Func where
   parseJSON =
     withObject "function" \obj ->
@@ -101,4 +111,4 @@ instance ToJSON Func where
            ]
     where
       blockToInstrs bb =
-        map toJSON (view BB.phiNodes bb) ++ map toJSON (view BB.instrs bb)
+        map toJSON (Map.elems $ view BB.phiNodes bb) ++ map toJSON (view BB.instrs bb)
