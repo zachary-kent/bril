@@ -18,8 +18,8 @@ import Data.Text (Text)
 -- | Represents a basic block in a Bril program;
 -- that is, a sequence of instructions that is executed atomically.
 data BasicBlock = BasicBlock
-  { -- | The name of the basic block is the name of the label, if any.
-    _name :: Maybe Text,
+  { -- | The name of the basic block is the name of the label
+    _name :: Text,
     -- | The phi nodes at the beginning of this basic block
     _phiNodes :: Map Label Phi.Node,
     -- | The instrs in the basic block
@@ -30,7 +30,7 @@ data BasicBlock = BasicBlock
 makeLenses ''BasicBlock
 
 instance ControlFlow BasicBlock where
-  label = view name
+  label = Just . view name
   fallsThrough BasicBlock {_instrs} = null _instrs || fallsThrough (last _instrs)
   labels BasicBlock {_instrs}
     | null _instrs = []

@@ -125,5 +125,4 @@ insertPhi x u g = modifyValue u (BB.insertPhi phi) g
   where
     phi = Phi.create x predecessorLabels
     predecessorLabels =
-      -- FIXME: add default labels for basic blocks without labels
-      mapMaybe (view (value . BB.name)) (predecessors u g)
+      map (view (value . BB.name)) (predecessors u g)
