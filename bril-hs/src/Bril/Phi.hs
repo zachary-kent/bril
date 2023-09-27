@@ -5,14 +5,12 @@ module Bril.Phi
     label,
     var,
     dest,
-    ty,
     args,
   )
 where
 
 import Bril.Expr (Var)
 import Bril.Instr (Label)
-import Bril.Type (Type)
 import Control.Lens hiding ((.=))
 import Data.Aeson
 
@@ -31,8 +29,6 @@ makeLenses ''Edge
 data Node = Node
   { -- | The variable this Phi node writes to
     _dest :: Var,
-    -- | The type of the variable this Phi node writes to
-    _ty :: Type,
     -- | The arguments to this Phi node
     _args :: [Edge]
   }
@@ -41,13 +37,12 @@ data Node = Node
 makeLenses ''Node
 
 instance ToJSON Node where
-  toJSON Node {_dest, _ty, _args} =
+  toJSON Node {_dest, _args} =
     object
       [ "dest" .= _dest,
-        "type" .= _ty,
         "labels" .= map (view label) _args,
         "args" .= map (view var) _args
       ]
 
-create :: Var -> Type -> [Label] -> Node
-create x t = Node x t . map (`Edge` x)
+create :: Var -> [Label] -> Node
+create x = Node x . map (`Edge` x)

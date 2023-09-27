@@ -29,6 +29,7 @@ library
       Bril.Dataflow
       Bril.Dominator
       Bril.Expr
+      Bril.Fresh
       Bril.Func
       Bril.Instr
       Bril.Literal
@@ -83,6 +84,7 @@ library
     , containers
     , effectful-core
     , effectful-plugin
+    , effectful-th
     , lattices
     , lens
     , optparse-applicative
@@ -131,6 +133,7 @@ executable bril-hs-exe
     , containers
     , effectful-core
     , effectful-plugin
+    , effectful-th
     , lattices
     , lens
     , optparse-applicative
@@ -181,6 +184,7 @@ test-suite bril-hs-test
     , containers
     , effectful-core
     , effectful-plugin
+    , effectful-th
     , hspec
     , lattices
     , lens

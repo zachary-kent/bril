@@ -7,16 +7,15 @@ module Bril.Optimizations.LVN.RenameTable
   )
 where
 
+import Bril.Fresh (nextAvailable)
 import Bril.Instr (Instr)
 import Bril.Instr qualified as Instr
-import Data.Foldable qualified as Foldable
 import Data.Map (Map)
 import Data.Map qualified as Map
 import Data.Maybe
 import Data.Set (Set)
 import Data.Set qualified as Set
 import Data.Text (Text)
-import Data.Text qualified as Text
 
 data RenameTable = RenameTable
   { renamings :: Map Text Text,
@@ -33,10 +32,7 @@ fromBasicBlock block =
 rename :: Text -> RenameTable -> (Text, RenameTable)
 rename x RenameTable {renamings, unavailable} = (x', table)
   where
-    x' =
-      fromJust $
-        Foldable.find (\newName -> not $ Set.member newName unavailable) $
-          map (\(n :: Integer) -> x <> Text.pack (show n)) [1 ..]
+    x' = fromJust $ nextAvailable (x <> ".lvn.") unavailable
     table =
       RenameTable
         { renamings = Map.insert x x' renamings,

@@ -27,6 +27,7 @@ dependencies:
 - containers
 - optparse-applicative
 - effectful-core
+- effectful-th
 - effectful-plugin
 - lens
 - lattices
