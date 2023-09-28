@@ -5,6 +5,7 @@ module Bril.CFG.NodeMap
     value,
     preds,
     succs,
+    fromForest,
     fromList,
     insertPhi,
   )
@@ -17,112 +18,129 @@ import Bril.CFG qualified as CFG
 import Bril.Expr (Var)
 import Bril.Instr (Label)
 import Bril.Phi qualified as Phi
-import Control.Lens (makeLenses, view, (%~))
+import Control.Lens (makeLenses, view, (%~), (^.))
 import Data.Foldable (foldl')
 import Data.Function (on, (&))
-import Data.IntMap (IntMap, Key)
-import Data.IntMap qualified as IntMap
-import Data.IntSet (IntSet)
-import Data.IntSet qualified as IntSet
+import Data.Map (Map)
 import Data.Map qualified as Map
 import Data.Maybe (mapMaybe)
+import Data.Set (Set)
+import Data.Set qualified as Set
 
 -- | A node containing exactly one Bril instruction
-data Node a = Node
+data Node k v = Node
   { -- | The zero-based index of this instruction in the instruction stream
-    _index :: Key,
+    _index :: k,
     -- | The instruction wrapped by this node
-    _value :: a,
+    _value :: v,
     -- | The indices of the predecessors of this node
-    _preds :: IntSet,
+    _preds :: Set k,
     -- | The indices of the successors of this node
-    _succs :: IntSet
+    _succs :: Set k
   }
   deriving (Show)
 
 makeLenses ''Node
 
-instance Eq (Node a) where
+createNode :: k -> v -> Node k v
+createNode k v = Node k v Set.empty Set.empty
+
+instance (Eq k) => Eq (Node k v) where
   (==) = (==) `on` view index
 
-instance Ord (Node a) where
+instance (Ord k) => Ord (Node k v) where
   compare = compare `on` view index
 
 -- | A mapping from every index in the instruction stream to a CFG
 -- node containing the instruction at that index
-type NodeMap a = IntMap (Node a)
+type NodeMap k v = Map k (Node k v)
 
 -- | A control flow graph where every node contains exactly one instruction
-newtype CFG a = CFG (NodeMap a) deriving (Show)
+newtype CFG k v = CFG (NodeMap k v) deriving (Show)
 
 -- | Insert an edge into the CFG
-insertEdge :: Key -> Key -> NodeMap a -> NodeMap a
+insertEdge :: (Ord k) => Node k v -> Node k v -> NodeMap k v -> NodeMap k v
 insertEdge src dst =
-  IntMap.adjust (succs %~ IntSet.insert dst) src
-    . IntMap.adjust (preds %~ IntSet.insert src) dst
+  Map.adjust (succs %~ Set.insert dstKey) srcKey
+    . Map.adjust (preds %~ Set.insert srcKey) dstKey
+  where
+    srcKey = src ^. index
+    dstKey = dst ^. index
 
-instance IsNode (Node a) where
+instance IsNode (Node Int v) where
   isStart Node {_index} = _index == 0
 
-instance IsCFG (CFG a) where
-  type NodeOf (CFG a) = Node a
-  nodes (CFG g) = IntMap.elems g
-  successors Node {_succs} (CFG g) = map (g IntMap.!) $ IntSet.toList _succs
-  predecessors Node {_preds} (CFG g) = map (g IntMap.!) $ IntSet.toList _preds
+instance (Ord k) => IsCFG (CFG k v) where
+  type NodeOf (CFG k v) = Node k v
+  nodes (CFG g) = Map.elems g
+  successors Node {_succs} (CFG g) = map (g Map.!) $ Set.toList _succs
+  predecessors Node {_preds} (CFG g) = map (g Map.!) $ Set.toList _preds
 
-  start (CFG g) = snd <$> IntMap.lookupMin g
+  start (CFG g) = snd <$> Map.lookupMin g
 
-instance DynCFG (CFG a) where
+instance (Ord k) => DynCFG (CFG k v) where
   deleteNode Node {_index, _preds, _succs} (CFG cfg) =
     cfg
       & deleteIncoming
       & deleteOutgoing
-      & IntMap.delete _index
+      & Map.delete _index
       & CFG
     where
       deleteIncoming g =
-        IntSet.foldl' (flip (IntMap.adjust (succs %~ IntSet.delete _index))) g _preds
+        Set.foldl' (flip (Map.adjust (succs %~ Set.delete _index))) g _preds
       deleteOutgoing g =
-        IntSet.foldl' (flip (IntMap.adjust (preds %~ IntSet.delete _index))) g _succs
+        Set.foldl' (flip (Map.adjust (preds %~ Set.delete _index))) g _succs
+
+instance (ControlFlow v) => ControlFlow (Node k v) where
+  label = CFG.label . view value
+  fallsThrough = CFG.fallsThrough . view value
+  labels = CFG.labels . view value
 
 -- | Look up the index of a label in the instruction stream
-labelToIndex :: (ControlFlow a) => [a] -> Label -> Key
-labelToIndex instrs = (Map.fromList labels Map.!)
+nodeWithLabel :: (ControlFlow v) => [Node k v] -> Label -> Node k v
+nodeWithLabel ns = (Map.fromList labels Map.!)
   where
-    labels = flip mapMaybe (zip instrs [0 ..]) \(inst, idx) ->
-      (,idx) <$> CFG.label inst
+    labels = mapMaybe (\node -> (,node) <$> CFG.label node) ns
 
--- | @forest instrs@ is a CFG with a node for every instruction in @instrs@ but no edges
-forest :: [a] -> NodeMap a
-forest instrs =
-  IntMap.fromDistinctAscList $
-    flip map (zip [0 ..] instrs) \(idx, inst) ->
-      let node = Node idx inst IntSet.empty IntSet.empty
-       in (idx, node)
+forest :: (Ord k) => [Node k v] -> NodeMap k v
+forest =
+  Map.fromList . map \node -> (node ^. index, node)
 
 -- | Construct a CFG from an instruction stream
-fromList :: (ControlFlow a) => [a] -> CFG a
-fromList instrs =
-  pruneUnreachable $ CFG $ foldl' addEdgesforInstr (forest instrs) (zip [0 ..] instrs)
+fromForest :: (Ord k, ControlFlow v) => [Node k v] -> CFG k v
+fromForest instrs =
+  pruneUnreachable $ CFG $ addEdgesForInstr instrs (forest instrs)
   where
-    lookupLabel = labelToIndex instrs
-    addEdgesforInstr g (src, inst)
-      | CFG.fallsThrough inst && dst < length instrs =
+    lookupLabel = nodeWithLabel instrs
+    addEdgesForInstr [] cfg = cfg
+    addEdgesForInstr (src : insts@(dst : _)) cfg
+      | CFG.fallsThrough src =
           -- If control flow falls through from this instruction to the next, add an edge
-          insertEdge src dst withEdgesForLabels
-      | otherwise = withEdgesForLabels
+          cfg
+            & withEdgesForLabels src
+            & insertEdge src dst
+            & addEdgesForInstr insts
+      | otherwise =
+          cfg
+            & withEdgesForLabels src
+            & addEdgesForInstr insts
+    addEdgesForInstr [src] cfg = withEdgesForLabels src cfg
+    withEdgesForLabels src cfg =
+      foldl' (\g' l -> insertEdge src (lookupLabel l) g') cfg succLabels
       where
-        dst = succ src
-        withEdgesForLabels =
-          foldl' (\g' l -> insertEdge src (lookupLabel l) g') g $ CFG.labels inst
+        succLabels = CFG.labels src
 
-modifyValue :: Node a -> (a -> a) -> CFG a -> CFG a
+modifyValue :: (Ord k) => Node k v -> (v -> v) -> CFG k v -> CFG k v
 modifyValue Node {_index} f (CFG g) =
-  CFG $ IntMap.adjust (value %~ f) _index g
+  CFG $ Map.adjust (value %~ f) _index g
 
-insertPhi :: Var -> Node BasicBlock -> CFG BasicBlock -> CFG BasicBlock
+insertPhi :: (Ord k) => Var -> Node k BasicBlock -> CFG k BasicBlock -> CFG k BasicBlock
 insertPhi x u g = modifyValue u (BB.insertPhi phi) g
   where
     phi = Phi.create x predecessorLabels
     predecessorLabels =
       map (view (value . BB.name)) (predecessors u g)
+
+-- | @forest instrs@ is a CFG with a node for every instruction in @instrs@ but no edges
+fromList :: (ControlFlow v) => [v] -> CFG Int v
+fromList instrs = fromForest $ zipWith createNode [0 ..] instrs

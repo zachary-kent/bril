@@ -19,7 +19,7 @@ import Data.Maybe (mapMaybe)
 import Data.Set (Set)
 import Data.Set qualified as Set
 
-transfer :: Set Var -> CFG.Node Instr -> Set Var
+transfer :: Set Var -> CFG.Node Int Instr -> Set Var
 transfer liveOut node =
   case Instr.def instr of
     Just x ->
@@ -38,7 +38,7 @@ transfer liveOut node =
     uses = Set.fromList (Instr.uses instr)
 
 -- | The dataflow parameters for a live variable analysis
-params :: Params (Set Var) (CFG Instr)
+params :: Params (Set Var) (CFG Int Instr)
 params =
   Params
     { dir = Dataflow.Backward,
@@ -64,7 +64,6 @@ runOnFunction :: Func -> Func
 runOnFunction func = func & Func.blocks .~ blocks
   where
     blocks = Func.formBasicBlocks $ mapMaybe removeDeadInstr $ nodes cfg
-    removeDeadInstr :: CFG.Node Instr -> Maybe Instr
     removeDeadInstr node = do
       let (liveOut, _) = facts ! node
           instr = node ^. CFG.value
