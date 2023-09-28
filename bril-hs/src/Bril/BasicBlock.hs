@@ -5,6 +5,7 @@ module Bril.BasicBlock
     instrs,
     insertPhi,
     defs,
+    start,
   )
 where
 
@@ -48,6 +49,9 @@ instance ControlFlow BasicBlock where
   labels BasicBlock {_instrs}
     | null _instrs = []
     | otherwise = labels (last _instrs)
+
+start :: BasicBlock
+start = BasicBlock ".__start" Map.empty []
 
 insertPhi :: Phi.Node -> BasicBlock -> BasicBlock
 insertPhi phi = phiNodes %~ Map.insert (phi ^. Phi.dest) phi

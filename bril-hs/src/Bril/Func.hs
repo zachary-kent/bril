@@ -47,13 +47,14 @@ splitAtTerminators = filter (not . null) . go []
 -- | Form a sequence of basic blocks from a sequence of instructions
 formBasicBlocks :: [Instr] -> [BasicBlock]
 formBasicBlocks instrs =
-  runPureEff $
-    runFresh existingLabels $
-      forM grouped \case
-        is@(Label l : _) -> pure $ BasicBlock l Map.empty is
-        is -> do
-          freshLabel <- fresh ".lbl."
-          pure $ BasicBlock freshLabel Map.empty is
+  (BB.start :) $
+    runPureEff $
+      runFresh existingLabels $
+        forM grouped \case
+          is@(Label l : _) -> pure $ BasicBlock l Map.empty is
+          is -> do
+            freshLabel <- fresh ".lbl."
+            pure $ BasicBlock freshLabel Map.empty is
   where
     grouped = splitAtTerminators instrs
     existingLabels = Set.fromList $ mapMaybe (preview _Label) instrs

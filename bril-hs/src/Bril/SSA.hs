@@ -1,4 +1,4 @@
-module Bril.SSA where
+module Bril.SSA (runOnProgram) where
 
 import Bril.BasicBlock qualified as BB
 import Bril.CFG.NodeMap (CFG)
@@ -7,8 +7,11 @@ import Bril.Dominator qualified as Dom
 import Bril.Func (BasicBlock, Func)
 import Bril.Func qualified as Func
 import Bril.Instr (Label)
-import Control.Lens (view)
+import Bril.Program (Program)
+import Bril.Program qualified as Program
+import Control.Lens (view, (%~), (.~))
 import Data.Foldable (foldl')
+import Data.Function ((&))
 import Data.Map ((!))
 import Data.Map qualified as Map
 import Data.Set (Set)
@@ -34,3 +37,15 @@ insertPhis tree func =
         cfg' = foldl' (flip (CFG.insertPhi x)) cfg frontier
         frontier :: Set Label
         frontier = Set.map (view BB.name . view CFG.value) $ frontierMap ! CFG.findNode d initialCFG
+
+runOnFunction :: Func -> Func
+runOnFunction func =
+  func & Func.blocks .~ CFG.values (insertPhis tree func)
+  where
+    tree = Dom.tree cfg
+    cfg = CFG.fromFunc func
+
+-- | Perform Static Single Assignment rewrite on every function in a program.
+-- | todo complete the loop
+runOnProgram :: Program -> Program
+runOnProgram = Program.functions %~ map runOnFunction

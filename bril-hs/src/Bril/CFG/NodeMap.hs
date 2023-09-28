@@ -10,6 +10,7 @@ module Bril.CFG.NodeMap
     insertPhi,
     fromFunc,
     findNode,
+    values,
   )
 where
 
@@ -80,6 +81,9 @@ insertEdge src dst =
 
 instance IsNode (Node Int v) where
   isStart Node {_index} = _index == 0
+
+instance IsNode (Node Label v) where
+  isStart Node {_index} = _index == ".__start"
 
 findNode :: (Ord k) => k -> CFG k v -> Node k v
 findNode u (CFG _ g) = g Map.! u
@@ -170,3 +174,6 @@ fromFunc :: Func -> CFG Label BasicBlock
 fromFunc func =
   fromForest $ flip map (func ^. Func.blocks) \block ->
     createNode (block ^. BB.name) block
+
+values :: (Ord k) => CFG k v -> [v]
+values = map (view value) . CFG.nodes
