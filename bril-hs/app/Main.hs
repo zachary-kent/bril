@@ -33,7 +33,7 @@ options =
 type Optimization = Program -> Program
 
 requestedOptimizations :: Options -> [Optimization]
-requestedOptimizations Options {tdce, dce, lvn} =
+requestedOptimizations Options {tdce, dce, lvn, ssa} =
   catMaybes
     [ guard lvn $> LVN.runOnProgram,
       guard dce $> DCE.runOnProgram,
