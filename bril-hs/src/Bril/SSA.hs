@@ -1,24 +1,36 @@
 module Bril.SSA where
 
-import Bril.CFG (IsCFG (..), IsNode (..))
-import Bril.Dominator (dominators, frontier, tree)
-import Bril.Func (vars)
+import Bril.BasicBlock qualified as BB
+import Bril.CFG.NodeMap (CFG)
+import Bril.CFG.NodeMap qualified as CFG
+import Bril.Dominator qualified as Dom
+import Bril.Func (BasicBlock, Func)
+import Bril.Func qualified as Func
+import Bril.Instr (Label)
+import Control.Lens (view)
 import Data.Foldable (foldl')
+import Data.Map ((!))
+import Data.Map qualified as Map
+import Data.Set (Set)
+import Data.Set qualified as Set
 
--- | for v in vars, each variable needs phi nodes inserted in the cfg
--- |   input CFG and set of variables to work on
--- |   output updated CFG
--- | processVars :: IsCFG g -> Set (Var v) -> DynCFG g
--- | processVars g =
--- |   foldl processDef vars cfg
-
--- | map from variables to blocks where they are assigned, must keep it updated
-
--- | for d in DEFS[var], in blocks where a variable is assigned insert phi nodes in the dominance frontier blocks
--- |   read from mapping of variables to blocks
--- | processDef :: IsCFG g -> (IsNode d,  ) -> IsCFG g
--- | processDef g = go initialDefs (var cfg)
--- |    where
--- |      initialDefs =
--- |
--- |  let df = dominators d in
+insertPhis :: Dom.Tree (CFG.Node Label BasicBlock) -> Func -> CFG Label BasicBlock
+insertPhis tree func =
+  foldl'
+    (\cfg x -> go cfg x Set.empty $ Set.toList $ defs ! x)
+    (CFG.fromFunc func)
+    vars
+  where
+    defs = Func.defsOf func
+    vars = Map.keys defs
+    initialCFG = CFG.fromFunc func
+    frontierMap = Dom.frontier @(CFG Label BasicBlock) tree initialCFG
+    go cfg _ _ [] = cfg
+    go cfg x processed (d : ds)
+      | d `Set.member` processed = go cfg x processed ds
+      | otherwise =
+          go cfg' x (Set.insert d processed) (Set.toList frontier ++ ds)
+      where
+        cfg' = foldl' (flip (CFG.insertPhi x)) cfg frontier
+        frontier :: Set Label
+        frontier = Set.map (view BB.name . view CFG.value) $ frontierMap ! CFG.findNode d initialCFG

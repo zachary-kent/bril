@@ -8,6 +8,8 @@ module Bril.CFG.NodeMap
     fromForest,
     fromList,
     insertPhi,
+    fromFunc,
+    findNode,
   )
 where
 
@@ -16,6 +18,8 @@ import Bril.BasicBlock qualified as BB
 import Bril.CFG (ControlFlow, DynCFG (..), IsCFG, IsNode (..), pruneUnreachable)
 import Bril.CFG qualified as CFG
 import Bril.Expr (Var)
+import Bril.Func (Func)
+import Bril.Func qualified as Func
 import Bril.Instr (Label)
 import Bril.Phi qualified as Phi
 import Control.Lens (makeLenses, view, (%~), (^.))
@@ -77,6 +81,9 @@ insertEdge src dst =
 instance IsNode (Node Int v) where
   isStart Node {_index} = _index == 0
 
+findNode :: (Ord k) => k -> CFG k v -> Node k v
+findNode u (CFG _ g) = g Map.! u
+
 instance (Ord k) => IsCFG (CFG k v) where
   type NodeOf (CFG k v) = Node k v
   nodes CFG {_order, _nodes} = map (_nodes Map.!) _order
@@ -86,7 +93,7 @@ instance (Ord k) => IsCFG (CFG k v) where
   start CFG {_order, _nodes} = (_nodes Map.!) <$> listToMaybe _order
 
 instance (Ord k) => DynCFG (CFG k v) where
-  deleteNode node@Node {_index, _preds, _succs} CFG {_order, _nodes} =
+  deleteNode Node {_index, _preds, _succs} CFG {_order, _nodes} =
     CFG
       { _order = List.delete _index _order,
         _nodes =
@@ -144,17 +151,22 @@ fromForest instrs =
       where
         succLabels = CFG.labels src
 
-modifyValue :: (Ord k) => Node k v -> (v -> v) -> CFG k v -> CFG k v
-modifyValue Node {_index} f =
-  nodes %~ Map.adjust (value %~ f) _index
+modifyValue :: (Ord k) => k -> (v -> v) -> CFG k v -> CFG k v
+modifyValue k f =
+  nodes %~ Map.adjust (value %~ f) k
 
-insertPhi :: (Ord k) => Var -> Node k BasicBlock -> CFG k BasicBlock -> CFG k BasicBlock
+insertPhi :: (Ord k) => Var -> k -> CFG k BasicBlock -> CFG k BasicBlock
 insertPhi x u g = modifyValue u (BB.insertPhi phi) g
   where
     phi = Phi.create x predecessorLabels
     predecessorLabels =
-      map (view (value . BB.name)) (CFG.predecessors u g)
+      map (view (value . BB.name)) (CFG.predecessors (findNode u g) g)
 
 -- | @forest instrs@ is a CFG with a node for every instruction in @instrs@ but no edges
 fromList :: (ControlFlow v) => [v] -> CFG Int v
 fromList instrs = fromForest $ zipWith createNode [0 ..] instrs
+
+fromFunc :: Func -> CFG Label BasicBlock
+fromFunc func =
+  fromForest $ flip map (func ^. Func.blocks) \block ->
+    createNode (block ^. BB.name) block

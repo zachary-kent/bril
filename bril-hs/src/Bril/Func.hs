@@ -11,6 +11,7 @@ module Bril.Func
     uses,
     vars,
     size,
+    defsOf,
   )
 where
 
@@ -18,12 +19,14 @@ import Bril.BasicBlock (BasicBlock (..))
 import Bril.BasicBlock qualified as BB
 import Bril.Expr (Var)
 import Bril.Fresh (fresh, runFresh)
-import Bril.Instr (Instr, Instr' (..), isTerminator, _Label)
+import Bril.Instr (Instr, Instr' (..), Label, isTerminator, _Label)
 import Bril.Instr qualified as Instr
 import Bril.Type (Type (..))
 import Control.Lens (makeLenses, preview, view)
 import Control.Monad (forM)
 import Data.Aeson
+import Data.Function ((&))
+import Data.Map (Map)
 import Data.Map qualified as Map
 import Data.Maybe
 import Data.Set (Set)
@@ -95,7 +98,26 @@ uses = Set.fromList . concatMap Instr.uses . instrs
 
 -- | All variables defined in a function
 defs :: Func -> Set Var
-defs = Set.fromList . mapMaybe Instr.def . instrs
+defs func = Set.fromList $ mapMaybe Instr.def $ instrs func
+
+defsOf :: Func -> Map Var (Set Label)
+defsOf Func {_blocks, _args} = Map.unionsWith Set.union (paramDefs : bbDefs)
+  where
+    paramDefs =
+      _args
+        & map
+          ( \Arg {name = argName} ->
+              (argName, Set.singleton $ view BB.name $ head _blocks)
+          )
+        & Map.fromList
+    bbDefs =
+      _blocks
+        & map \bb ->
+          bb
+            & BB.defs
+            & Set.toList
+            & map (,Set.singleton $ view BB.name bb)
+            & Map.fromList
 
 -- | All variables referenced in a function
 vars :: Func -> Set Var

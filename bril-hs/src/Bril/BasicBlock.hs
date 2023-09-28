@@ -4,15 +4,22 @@ module Bril.BasicBlock
     phiNodes,
     instrs,
     insertPhi,
+    defs,
   )
 where
 
 import Bril.CFG (ControlFlow (..))
+import Bril.Expr (Var)
 import Bril.Instr (Instr, Label)
+import Bril.Instr qualified as Instr
 import Bril.Phi qualified as Phi
 import Control.Lens (makeLenses, view, (%~), (^.))
+import Data.Function (on)
 import Data.Map (Map)
 import Data.Map qualified as Map
+import Data.Maybe (mapMaybe)
+import Data.Set (Set)
+import Data.Set qualified as Set
 import Data.Text (Text)
 
 -- | Represents a basic block in a Bril program;
@@ -29,6 +36,12 @@ data BasicBlock = BasicBlock
 
 makeLenses ''BasicBlock
 
+instance Eq BasicBlock where
+  (==) = (==) `on` view name
+
+instance Ord BasicBlock where
+  compare = compare `on` view name
+
 instance ControlFlow BasicBlock where
   label = Just . view name
   fallsThrough BasicBlock {_instrs} = null _instrs || fallsThrough (last _instrs)
@@ -38,3 +51,6 @@ instance ControlFlow BasicBlock where
 
 insertPhi :: Phi.Node -> BasicBlock -> BasicBlock
 insertPhi phi = phiNodes %~ Map.insert (phi ^. Phi.dest) phi
+
+defs :: BasicBlock -> Set Var
+defs = Set.fromList . mapMaybe Instr.def . view instrs
