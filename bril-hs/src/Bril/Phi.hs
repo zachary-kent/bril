@@ -40,6 +40,7 @@ instance ToJSON Node where
   toJSON Node {_dest, _args} =
     object
       [ "dest" .= _dest,
+        "op" .= ("phi" :: String),
         "labels" .= map (view label) _args,
         "args" .= map (view var) _args
       ]

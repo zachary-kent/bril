@@ -143,4 +143,9 @@ instance ToJSON Func where
            ]
     where
       blockToInstrs bb =
-        map toJSON (Map.elems $ view BB.phiNodes bb) ++ map toJSON (view BB.instrs bb)
+        case insts of
+          lbl@(Label _) : rest -> toJSON lbl : phiJSONs ++ map toJSON rest
+          _ -> phiJSONs ++ map toJSON insts
+        where
+          phiJSONs = map toJSON (Map.elems $ view BB.phiNodes bb)
+          insts = view BB.instrs bb
