@@ -14,34 +14,32 @@ import Data.Set (Set)
 import Data.Set qualified as Set
 import Control.Lens ( (%~), (.~), (&), view )
 
--- | for v in vars, each variable needs phi nodes inserted in the cfg
--- |   input CFG and set of variables to work on
--- |   output updated CFG
--- | processVars :: IsCFG g -> Set (Var v) -> DynCFG g
--- | processVars g =
--- |   foldl processDef vars cfg
 
 -- | map from variables to blocks where they are assigned, must keep it updated
-
--- | for d in DEFS[var], in blocks where a variable is assigned insert phi nodes in the dominance frontier blocks
--- |   read from mapping of variables to blocks
--- | processDef :: IsCFG g -> (IsNode d,  ) -> IsCFG g
--- | processDef g = go initialDefs (var cfg)
--- |    where
--- |      initialDefs =
--- |
--- |  let df = dominators d in
 
 -- | for rename
 -- | Func.hs fromBasicBlocks usage of RunFresh example
 -- | runFresh Func.vars
 -- |   fresh varname
 
--- | todo implement
+
+-- | for a v in the variables of a function, insert phi nodes in cfg
 procVar :: (Show var) => CFG a -> var -> CFG a
+-- |   input CFG and set of variables to work on
+-- |   output updated CFG
+-- |   foldl processDef vars cfg
+-- | stub
 procVar g v = traceShow ("Processing variable " ++ show v) g
 
--- | for every Bril function, for every variable in the function, insert phi nodes, accumulate in the CFG with a foldl
+-- | for d in DEFS[var], in blocks where a variable is assigned insert phi nodes in the dominance frontier blocks
+-- |   read from mapping of variables to blocks
+-- | processDef :: CFG g -> (IsNode d,  ) -> CFG g
+-- | processDef g = go initialDefs (var cfg)
+-- |    where
+-- |      initialDefs =
+-- |  let df = dominators d in
+
+-- | for a Bril function, for every variable in the function, insert phi nodes, accumulate in the CFG with a foldl
 runOnFunction :: Func -> Func
 runOnFunction func =
   let
@@ -49,12 +47,9 @@ runOnFunction func =
     cfg = CFG.fromList instrs
     cfg' = foldl' procVar cfg (Set.toList $ vars func)
   in
-    -- | func & Func.blocks .~ Func.formBasicBlocks (map CFG.value (nodes cfg'))
     func & Func.blocks .~ Func.formBasicBlocks (map (view CFG.value) (nodes cfg'))
-    -- | func & Func.blocks .~ Func.formBasicBlocks (map instr (nodes cfg'))
 
 -- | Perform Static Single Assignment rewrite on every function in a program.
--- | todo complete the loop
 runOnProgram :: Program -> Program
 runOnProgram = Program.functions %~ map runOnFunction
 
