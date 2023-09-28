@@ -13,7 +13,7 @@ where
 
 import Bril.BasicBlock (BasicBlock)
 import Bril.BasicBlock qualified as BB
-import Bril.CFG (ControlFlow, DynCFG (..), IsCFG (..), IsNode (..), pruneUnreachable)
+import Bril.CFG (ControlFlow, DynCFG (..), IsCFG, IsNode (..), pruneUnreachable)
 import Bril.CFG qualified as CFG
 import Bril.Expr (Var)
 import Bril.Instr (Label)
@@ -21,9 +21,10 @@ import Bril.Phi qualified as Phi
 import Control.Lens (makeLenses, view, (%~), (^.))
 import Data.Foldable (foldl')
 import Data.Function (on, (&))
+import Data.List qualified as List
 import Data.Map (Map)
 import Data.Map qualified as Map
-import Data.Maybe (mapMaybe)
+import Data.Maybe (listToMaybe, mapMaybe)
 import Data.Set (Set)
 import Data.Set qualified as Set
 
@@ -56,7 +57,13 @@ instance (Ord k) => Ord (Node k v) where
 type NodeMap k v = Map k (Node k v)
 
 -- | A control flow graph where every node contains exactly one instruction
-newtype CFG k v = CFG (NodeMap k v) deriving (Show)
+data CFG k v = CFG
+  { _order :: [k],
+    _nodes :: NodeMap k v
+  }
+  deriving (Show)
+
+makeLenses ''CFG
 
 -- | Insert an edge into the CFG
 insertEdge :: (Ord k) => Node k v -> Node k v -> NodeMap k v -> NodeMap k v
@@ -72,19 +79,22 @@ instance IsNode (Node Int v) where
 
 instance (Ord k) => IsCFG (CFG k v) where
   type NodeOf (CFG k v) = Node k v
-  nodes (CFG g) = Map.elems g
-  successors Node {_succs} (CFG g) = map (g Map.!) $ Set.toList _succs
-  predecessors Node {_preds} (CFG g) = map (g Map.!) $ Set.toList _preds
+  nodes CFG {_order, _nodes} = map (_nodes Map.!) _order
+  successors Node {_succs} (CFG _ g) = map (g Map.!) $ Set.toList _succs
+  predecessors Node {_preds} (CFG _ g) = map (g Map.!) $ Set.toList _preds
 
-  start (CFG g) = snd <$> Map.lookupMin g
+  start CFG {_order, _nodes} = (_nodes Map.!) <$> listToMaybe _order
 
 instance (Ord k) => DynCFG (CFG k v) where
-  deleteNode Node {_index, _preds, _succs} (CFG cfg) =
-    cfg
-      & deleteIncoming
-      & deleteOutgoing
-      & Map.delete _index
-      & CFG
+  deleteNode node@Node {_index, _preds, _succs} CFG {_order, _nodes} =
+    CFG
+      { _order = List.delete _index _order,
+        _nodes =
+          _nodes
+            & deleteIncoming
+            & deleteOutgoing
+            & Map.delete _index
+      }
     where
       deleteIncoming g =
         Set.foldl' (flip (Map.adjust (succs %~ Set.delete _index))) g _preds
@@ -109,7 +119,11 @@ forest =
 -- | Construct a CFG from an instruction stream
 fromForest :: (Ord k, ControlFlow v) => [Node k v] -> CFG k v
 fromForest instrs =
-  pruneUnreachable $ CFG $ addEdgesForInstr instrs (forest instrs)
+  pruneUnreachable $
+    CFG
+      { _order = map (view index) instrs,
+        _nodes = addEdgesForInstr instrs (forest instrs)
+      }
   where
     lookupLabel = nodeWithLabel instrs
     addEdgesForInstr [] cfg = cfg
@@ -131,15 +145,15 @@ fromForest instrs =
         succLabels = CFG.labels src
 
 modifyValue :: (Ord k) => Node k v -> (v -> v) -> CFG k v -> CFG k v
-modifyValue Node {_index} f (CFG g) =
-  CFG $ Map.adjust (value %~ f) _index g
+modifyValue Node {_index} f =
+  nodes %~ Map.adjust (value %~ f) _index
 
 insertPhi :: (Ord k) => Var -> Node k BasicBlock -> CFG k BasicBlock -> CFG k BasicBlock
 insertPhi x u g = modifyValue u (BB.insertPhi phi) g
   where
     phi = Phi.create x predecessorLabels
     predecessorLabels =
-      map (view (value . BB.name)) (predecessors u g)
+      map (view (value . BB.name)) (CFG.predecessors u g)
 
 -- | @forest instrs@ is a CFG with a node for every instruction in @instrs@ but no edges
 fromList :: (ControlFlow v) => [v] -> CFG Int v
