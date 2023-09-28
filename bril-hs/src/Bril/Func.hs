@@ -17,17 +17,19 @@ where
 import Bril.BasicBlock (BasicBlock (..))
 import Bril.BasicBlock qualified as BB
 import Bril.Expr (Var)
-import Bril.Instr (Instr, Instr' (..), isTerminator)
+import Bril.Fresh (fresh, runFresh)
+import Bril.Instr (Instr, Instr' (..), isTerminator, _Label)
 import Bril.Instr qualified as Instr
 import Bril.Type (Type (..))
-import Control.Arrow ((>>>))
-import Control.Lens (makeLenses, view)
+import Control.Lens (makeLenses, preview, view)
+import Control.Monad (forM)
 import Data.Aeson
 import Data.Map qualified as Map
 import Data.Maybe
 import Data.Set (Set)
 import Data.Set qualified as Set
 import Data.Text (Text)
+import Effectful (runPureEff)
 
 -- | Split an instruction stream into basic blocks
 splitAtTerminators :: [Instr] -> [[Instr]]
@@ -41,10 +43,17 @@ splitAtTerminators = filter (not . null) . go []
 
 -- | Form a sequence of basic blocks from a sequence of instructions
 formBasicBlocks :: [Instr] -> [BasicBlock]
-formBasicBlocks =
-  splitAtTerminators >>> map \case
-    is@(Label l : _) -> BasicBlock (Just l) Map.empty is
-    is -> BasicBlock Nothing Map.empty is
+formBasicBlocks instrs =
+  runPureEff $
+    runFresh existingLabels $
+      forM grouped \case
+        is@(Label l : _) -> pure $ BasicBlock l Map.empty is
+        is -> do
+          freshLabel <- fresh ".lbl."
+          pure $ BasicBlock freshLabel Map.empty is
+  where
+    grouped = splitAtTerminators instrs
+    existingLabels = Set.fromList $ mapMaybe (preview _Label) instrs
 
 -- | An argument to a function
 data Arg = Arg

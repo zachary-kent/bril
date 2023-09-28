@@ -17,7 +17,6 @@ import Bril.CFG qualified as CFG
 import Bril.Expr (Var)
 import Bril.Instr (Label)
 import Bril.Phi qualified as Phi
-import Bril.Type (Type)
 import Control.Lens (makeLenses, view, (%~))
 import Data.Foldable (foldl')
 import Data.Function (on, (&))
@@ -121,10 +120,9 @@ modifyValue :: Node a -> (a -> a) -> CFG a -> CFG a
 modifyValue Node {_index} f (CFG g) =
   CFG $ IntMap.adjust (value %~ f) _index g
 
-insertPhi :: Var -> Type -> Node BasicBlock -> CFG BasicBlock -> CFG BasicBlock
-insertPhi x ty u g = modifyValue u (BB.insertPhi phi) g
+insertPhi :: Var -> Node BasicBlock -> CFG BasicBlock -> CFG BasicBlock
+insertPhi x u g = modifyValue u (BB.insertPhi phi) g
   where
-    phi = Phi.create x ty predecessorLabels
+    phi = Phi.create x predecessorLabels
     predecessorLabels =
-      -- FIXME: add default labels for basic blocks without labels
-      mapMaybe (view (value . BB.name)) (predecessors u g)
+      map (view (value . BB.name)) (predecessors u g)
