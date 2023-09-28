@@ -2,6 +2,7 @@ module Bril.Fresh
   ( fresh,
     nextAvailable,
     runFreshWithPostfix,
+    Fresh (..),
     runFresh,
   )
 where

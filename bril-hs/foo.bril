@@ -1,9 +1,8 @@
-@main {
+@main() {
   cond: bool = const true;
   x: int = const 0;
   br cond .tru .fls;
 .tru:
-  x: int = const 1;
   jmp .end;
 .fls:
   x: int = const 2;

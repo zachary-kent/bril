@@ -53,8 +53,8 @@ formBasicBlocks instrs =
         forM grouped \case
           is@(Label l : _) -> pure $ BasicBlock l Map.empty is
           is -> do
-            freshLabel <- fresh ".lbl."
-            pure $ BasicBlock freshLabel Map.empty is
+            freshLabel <- fresh "lbl."
+            pure $ BasicBlock freshLabel Map.empty (Label freshLabel : is)
   where
     grouped = splitAtTerminators instrs
     existingLabels = Set.fromList $ mapMaybe (preview _Label) instrs

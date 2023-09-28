@@ -83,7 +83,7 @@ instance IsNode (Node Int v) where
   isStart Node {_index} = _index == 0
 
 instance IsNode (Node Label v) where
-  isStart Node {_index} = _index == ".__start"
+  isStart Node {_index} = _index == "__start"
 
 findNode :: (Ord k) => k -> CFG k v -> Node k v
 findNode u (CFG _ g) = g Map.! u

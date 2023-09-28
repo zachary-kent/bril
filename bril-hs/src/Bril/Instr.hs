@@ -5,6 +5,7 @@ module Bril.Instr
     Label,
     uses,
     def,
+    setDef,
     destType,
     isTerminator,
     opcode,
@@ -82,6 +83,10 @@ instance ControlFlow (Instr' a) where
 def :: Instr' a -> Maybe Var
 def (Assign x _ _) = pure x
 def _ = Nothing
+
+setDef :: Var -> Instr' a -> Instr' a
+setDef y (Assign _ t e) = Assign y t e
+setDef _ inst = inst
 
 -- | The type of a variable defined by an instruction, if any
 destType :: Instr' a -> Maybe Type

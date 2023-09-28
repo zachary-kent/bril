@@ -6,6 +6,7 @@ module Bril.Phi
     var,
     dest,
     args,
+    replaceUse
   )
 where
 
@@ -13,6 +14,8 @@ import Bril.Expr (Var)
 import Bril.Instr (Label)
 import Control.Lens hiding ((.=))
 import Data.Aeson
+import Data.Map (Map)
+import Data.Map qualified as Map
 
 -- | Represents an argument to a phi node
 data Edge = Edge
@@ -30,7 +33,7 @@ data Node = Node
   { -- | The variable this Phi node writes to
     _dest :: Var,
     -- | The arguments to this Phi node
-    _args :: [Edge]
+    _args :: Map Label Var
   }
   deriving (Show)
 
@@ -41,9 +44,19 @@ instance ToJSON Node where
     object
       [ "dest" .= _dest,
         "op" .= ("phi" :: String),
-        "labels" .= map (view label) _args,
-        "args" .= map (view var) _args
+        "labels" .= Map.keys _args,
+        "args" .= Map.elems _args
       ]
 
 create :: Var -> [Label] -> Node
-create x = Node x . map (`Edge` x)
+create x preds =
+  Node {
+    _dest = x,
+    _args =
+      preds
+      & map (, x)
+      & Map.fromList
+  }
+
+replaceUse :: Map Var Var -> Label -> Node -> Node
+replaceUse renames l = args %~ Map.update (`Map.lookup` renames) l
