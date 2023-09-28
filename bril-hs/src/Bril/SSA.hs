@@ -5,13 +5,12 @@ import Bril.CFG.NodeMap (CFG)
 import Bril.CFG.NodeMap qualified as CFG
 
 import Bril.Dominator (dominators, frontier, tree)
-import Bril.Func (vars)
+import Bril.Func ( vars, Func )
 import Data.Foldable (foldl')
 import Debug.Trace(traceShow)
 import Bril.Program qualified as Program
 import Bril.Program (Program)
 import Bril.Func qualified as Func
-import Bril.Func (Func)
 import Data.Set (Set)
 import Data.Set qualified as Set
 
@@ -36,9 +35,9 @@ import Data.Set qualified as Set
 
 
 -- | todo implement
-procVar :: CFG -> var -> CFG
+procVar :: CFG a -> var -> CFG a
 procVar g v = do
-    traceShow(v)
+    traceShow v
     return g
 
 
