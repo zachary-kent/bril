@@ -9,11 +9,14 @@ import Bril.Func qualified as Func
 import Bril.Instr (Label)
 import Bril.Program (Program)
 import Bril.Program qualified as Program
-import Control.Lens (view, (%~), (.~))
-import Data.Foldable (foldl')
+import Control.Lens ( view, (%~), (.~), (%~), (.~), (&), view )
+import Data.Foldable ( foldl', foldl' )
 import Data.Function ((&))
 import Data.Map ((!))
 import Data.Map qualified as Map
+import Bril.CFG ( IsCFG(..), IsNode(..), IsCFG(nodes) )
+import Bril.Dominator (dominators, frontier, tree)
+import Debug.Trace(traceShow)
 import Data.Set (Set)
 import Data.Set qualified as Set
 
@@ -38,6 +41,7 @@ insertPhis tree func =
         frontier :: Set Label
         frontier = Set.map (view BB.name . view CFG.value) $ frontierMap ! CFG.findNode d initialCFG
 
+-- | for a Bril function, for every variable in the function, insert phi nodes, accumulate in the CFG with a foldl
 runOnFunction :: Func -> Func
 runOnFunction func =
   func & Func.blocks .~ CFG.values (insertPhis tree func)
@@ -45,7 +49,14 @@ runOnFunction func =
     tree = Dom.tree cfg
     cfg = CFG.fromFunc func
 
+-- | for rename
+-- | Func.hs fromBasicBlocks usage of RunFresh example
+-- | runFresh Func.vars
+-- |   fresh varname
+
 -- | Perform Static Single Assignment rewrite on every function in a program.
--- | todo complete the loop
 runOnProgram :: Program -> Program
 runOnProgram = Program.functions %~ map runOnFunction
+
+-- | test usage in bril-hs
+-- | bril2json < ../benchmarks/core/fact.bril | stack run -- --ssa
