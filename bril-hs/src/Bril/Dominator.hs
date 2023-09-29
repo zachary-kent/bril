@@ -119,13 +119,9 @@ frontier root g =
   where
     go Node {node, children} = do
       (childDoms, childFrontiers) <- unzip <$> traverse go (Set.toList children)
-      let doms = Set.insert node $ Set.unions childDoms
+      let doms = Set.unions childDoms
           succs = Set.fromList $ successors node g
           rootFrontier =
             (succs `Set.union` Set.unions childFrontiers) \\ doms
-          withSelf =
-            if node `List.elem` predecessors node g
-              then Set.insert node rootFrontier
-              else rootFrontier
-      modify (Map.insert node withSelf)
-      pure (doms, withSelf)
+      modify (Map.insert node rootFrontier)
+      pure (Set.insert node doms, rootFrontier)
