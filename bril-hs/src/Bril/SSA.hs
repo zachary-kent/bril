@@ -1,28 +1,27 @@
 module Bril.SSA (runOnProgram) where
 
-import Bril.BasicBlock (start)
 import Bril.BasicBlock qualified as BB
-import Bril.CFG (IsCFG (successors))
 import Bril.CFG.NodeMap (CFG)
 import Bril.CFG.NodeMap qualified as CFG
 import Bril.Dominator qualified as Dom
 import Bril.Expr (Var)
-import Bril.Fresh (Fresh)
+import Bril.Fresh (Fresh, fresh, runFreshWithPostfix)
 import Bril.Func (BasicBlock, Func)
 import Bril.Func qualified as Func
-import Bril.Instr (Instr, Label)
+import Bril.Instr (Instr, Label, setDef)
 import Bril.Instr qualified as Instr
 import Bril.Phi qualified as Phi
 import Bril.Program (Program)
 import Bril.Program qualified as Program
-import Control.Lens (view, (%~), (&), (.~))
+import Control.Lens (view, views, (%~), (&), (.~), (^.))
+import Control.Monad (foldM, forM)
 import Data.Foldable (foldl')
 import Data.Map (Map, (!))
 import Data.Map qualified as Map
 import Data.Set (Set)
 import Data.Set qualified as Set
 import Effectful
-import Effectful.State.Static.Local (State, get)
+import Effectful.State.Static.Local (State, get, modify, runState)
 
 insertPhis :: Dom.Tree (CFG.Node Label BasicBlock) -> Func -> CFG Label BasicBlock
 insertPhis tree func =
@@ -64,11 +63,35 @@ renameInstrs = mapM \instr -> do
   renames <- get
   let renamedInstr = fmap (renames !) instr
   case Instr.def renamedInstr of
-    Nothing -> pure ()
+    Nothing -> pure renamedInstr
     Just dest -> do
       newDest <- fresh dest
       modify (Map.insert dest newDest)
       pure $ setDef newDest renamedInstr
+
+renamePhiDest :: (State (Map Var Var) :> es, Fresh :> es) => BasicBlock -> Eff es (Map Var Phi.Node)
+renamePhiDest bb =
+  Map.fromList <$> forM (views BB.phiNodes Map.toList bb) \(dest, phi) -> do
+    newDest <- fresh dest
+    modify (Map.insert dest newDest)
+    pure (newDest, phi & Phi.dest .~ newDest)
+
+rename :: (Fresh :> es) => Map Var Var -> CFG Label BasicBlock -> Dom.Node (CFG.Node Label BasicBlock) -> Eff es (CFG Label BasicBlock)
+rename renames cfg Dom.Node {node, children} = do
+  (block, renames') <- runState renames renameBlock
+  let withRewrittenBlock = CFG.setValue label block cfg
+      succs = cfgNode ^. CFG.succs
+      withRewrittenSuccs = foldl' (\acc dst -> CFG.modifyValue dst (BB.renamePhiUses renames' label) acc) withRewrittenBlock succs
+  foldM (rename renames') withRewrittenSuccs children
+  where
+    label = node ^. CFG.index
+    cfgNode = CFG.findNode label cfg
+    renameBlock :: (State (Map Var Var) :> es, Fresh :> es) => Eff es BasicBlock
+    renameBlock = do
+      let block = cfgNode ^. CFG.value
+      phiNodes <- renamePhiDest block
+      instrs <- renameInstrs (block ^. BB.instrs)
+      pure (block & (BB.phiNodes .~ phiNodes) . (BB.instrs .~ instrs))
 
 -- \| replaceUse renames l = args %~ Map.update (`Map.lookup` renames) l
 
@@ -77,35 +100,42 @@ renameInstrs = mapM \instr -> do
 -- | runFresh Func.vars
 -- |   fresh varname
 
-
 -- | todo
-renameBlock :: Dom.Tree -> Map.Map Var Var -> CFG.Node Label BasicBlock -> Label -> CFG.Node Label BasicBlock
-renameBlock tree varMap cfg block =
-  block
+-- renameBlock :: Dom.Tree -> Map.Map Var Var -> CFG.Node Label BasicBlock -> Label -> CFG.Node Label BasicBlock
+-- renameBlock tree varMap cfg block =
+--   block
+
 -- |  foldl renameBlock tree varMap cfg (relations (
 -- |    cfg' = cfg . successors block .~ renamePhiUse newCFG
 -- |)) block) {sdom}
-  -- |where
+-- |where
 -- |    newCFG = findNode block cfg ^. BB.instrs %~ map renameInstrs varMap
 -- |    cfg' = cfg . successors block .~ renamePhiUse newCFG
 
-
 -- | for a Bril function, for every block, recursively rename variables
-renameVariables :: Func -> Func
-renameVariables func =
-  func & Func.blocks .~ CFG.values (renameBlock tree varMap cfg BasicBlock.start)
-  where
-    cfg = (CFG.fromFunc func)
-    tree = Dom.tree cfg
-    varMap = Map.fromList Map.fromSet (\x -> x) Func.vars func
+-- renameVariables :: Func -> Func
+-- renameVariables func =
+--   func & Func.blocks .~ CFG.values (renameBlock tree varMap cfg BasicBlock.start)
+--   where
+--     cfg = (CFG.fromFunc func)
+--     tree = Dom.tree cfg
+--     varMap = Map.fromList Map.fromSet (\x -> x) Func.vars func
 
 -- | for a Bril function, for every variable in the function, insert phi nodes, accumulate in the CFG with a foldl
 runOnFunction :: Func -> Func
 runOnFunction func =
-  func & Func.blocks .~ CFG.values (insertPhis tree func)
+  func & Func.blocks .~ CFG.values (renameCFG $ insertPhis tree func)
   where
-    tree = Dom.tree cfg
-    cfg = CFG.fromFunc func
+    tree = Dom.tree initialCFG
+    initialCFG = CFG.fromFunc func
+    paramRenames = Map.fromList $ map (\arg -> (arg, arg)) $ Func.argNames func
+    renameCFG cfg =
+      case tree of
+        Dom.Empty -> cfg
+        Dom.Root node ->
+          runPureEff $
+            runFreshWithPostfix ".ssa." (Func.defs func) $
+              rename paramRenames cfg node
 
 -- | Perform Static Single Assignment rewrite on every function in a program.
 runOnProgram :: Program -> Program

@@ -10,6 +10,8 @@ module Bril.Func
     Arg (..),
     uses,
     vars,
+    argNames,
+    defs,
     size,
     defsOf,
   )
@@ -22,7 +24,7 @@ import Bril.Fresh (fresh, runFresh)
 import Bril.Instr (Instr, Instr' (..), Label, isTerminator, _Label)
 import Bril.Instr qualified as Instr
 import Bril.Type (Type (..))
-import Control.Lens (makeLenses, preview, view)
+import Control.Lens (makeLenses, preview, view, views)
 import Control.Monad (forM)
 import Data.Aeson
 import Data.Function ((&))
@@ -61,7 +63,7 @@ formBasicBlocks instrs =
 
 -- | An argument to a function
 data Arg = Arg
-  { name :: Text,
+  { name :: Var,
     ty :: Type
   }
   deriving (Show)
@@ -99,17 +101,18 @@ uses = Set.fromList . concatMap Instr.uses . instrs
 
 -- | All variables defined in a function
 defs :: Func -> Set Var
-defs func = Set.fromList $ mapMaybe Instr.def $ instrs func
+defs func = Set.fromList $ argNames func ++ mapMaybe Instr.def (instrs func)
+
+argNames :: Func -> [Var]
+argNames = views args $ map \Arg {name = argName} -> argName
 
 defsOf :: Func -> Map Var (Set Label)
-defsOf Func {_blocks, _args} = Map.unionsWith Set.union (paramDefs : bbDefs)
+defsOf func@Func {_blocks} = Map.unionsWith Set.union (paramDefs : bbDefs)
   where
     paramDefs =
-      _args
-        & map
-          ( \Arg {name = argName} ->
-              (argName, Set.singleton $ view BB.name $ head _blocks)
-          )
+      func
+        & argNames
+        & map (,Set.singleton $ view BB.name $ head _blocks)
         & Map.fromList
     bbDefs =
       _blocks

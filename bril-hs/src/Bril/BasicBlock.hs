@@ -12,10 +12,10 @@ where
 
 import Bril.CFG (ControlFlow (..))
 import Bril.Expr (Var)
-import Bril.Instr (Instr, Label, Instr' (Label))
+import Bril.Instr (Instr, Instr' (Label), Label)
 import Bril.Instr qualified as Instr
 import Bril.Phi qualified as Phi
-import Control.Lens (makeLenses, view, (%~), (^.), views)
+import Control.Lens (makeLenses, view, (%~), (^.))
 import Data.Function (on)
 import Data.Map (Map)
 import Data.Map qualified as Map
@@ -23,10 +23,6 @@ import Data.Maybe (mapMaybe)
 import Data.Set (Set)
 import Data.Set qualified as Set
 import Data.Text (Text)
-import Effectful.State.Static.Local
-import Effectful
-import Bril.Fresh
-
 
 -- | Represents a basic block in a Bril program;
 -- that is, a sequence of instructions that is executed atomically.
@@ -63,14 +59,6 @@ insertPhi phi = phiNodes %~ Map.insert (phi ^. Phi.dest) phi
 
 renamePhiUses :: Map Var Var -> Label -> BasicBlock -> BasicBlock
 renamePhiUses renamings predLabel = phiNodes %~ Map.map (Phi.replaceUse renamings predLabel)
-
-renamePhiDest :: (State (Map Var Var) :> es, Fresh :> es) => BasicBlock -> Eff es BasicBlock
-renamePhiDest bb = do
-  _phiNodes <- mapM (views phiNodes  Map.toList bb) \(dest, phi) -> do
-    newDest <- fresh dest
-    modify (Map.insert dest newDest)
-  error ""
-
 
 defs :: BasicBlock -> Set Var
 defs = Set.fromList . mapMaybe Instr.def . view instrs

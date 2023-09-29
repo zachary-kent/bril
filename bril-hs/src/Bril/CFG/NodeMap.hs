@@ -10,6 +10,8 @@ module Bril.CFG.NodeMap
     insertPhi,
     fromFunc,
     findNode,
+    setValue,
+    modifyValue,
     values,
   )
 where
@@ -23,7 +25,7 @@ import Bril.Func (Func)
 import Bril.Func qualified as Func
 import Bril.Instr (Label)
 import Bril.Phi qualified as Phi
-import Control.Lens (makeLenses, view, (%~), (^.))
+import Control.Lens (makeLenses, view, (%~), (.~), (^.))
 import Data.Foldable (foldl')
 import Data.Function (on, (&))
 import Data.List qualified as List
@@ -158,6 +160,10 @@ fromForest instrs =
 modifyValue :: (Ord k) => k -> (v -> v) -> CFG k v -> CFG k v
 modifyValue k f =
   nodes %~ Map.adjust (value %~ f) k
+
+setValue :: (Ord k) => k -> v -> CFG k v -> CFG k v
+setValue k v =
+  nodes %~ Map.adjust (value .~ v) k
 
 insertPhi :: (Ord k) => Var -> k -> CFG k BasicBlock -> CFG k BasicBlock
 insertPhi x u g = modifyValue u (BB.insertPhi phi) g
