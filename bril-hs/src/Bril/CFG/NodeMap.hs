@@ -194,7 +194,9 @@ removePhis cfg = mapValues BB.deletePhis withAssigns
   where
     withAssigns =
       foldl'
-        (\acc (dst, lbl, src) -> modifyValue lbl (BB.addInstr (Assign dst Nothing (Id src))) acc)
+        ( \acc (dst, lbl, src) ->
+            modifyValue lbl (BB.addInstr (Assign dst Nothing (Id src))) acc
+        )
         cfg
         phiAssignments
     phiAssignments =
