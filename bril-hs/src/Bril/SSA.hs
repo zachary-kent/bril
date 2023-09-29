@@ -4,24 +4,25 @@ import Bril.BasicBlock qualified as BB
 import Bril.CFG.NodeMap (CFG)
 import Bril.CFG.NodeMap qualified as CFG
 import Bril.Dominator qualified as Dom
-import Bril.Expr (Var)
+import Bril.Expr (Expr' (..), Var)
 import Bril.Fresh (Fresh, fresh, runFreshWithPostfix)
 import Bril.Func (BasicBlock, Func)
 import Bril.Func qualified as Func
-import Bril.Instr (Instr, Label, setDef)
+import Bril.Instr (Instr, Instr' (..), Label, setDef)
 import Bril.Instr qualified as Instr
+import Bril.Literal
 import Bril.Phi qualified as Phi
 import Bril.Program (Program)
 import Bril.Program qualified as Program
 import Control.Lens (view, views, (%~), (&), (.~), (^.))
-import Control.Monad (foldM, forM)
+import Control.Monad (foldM, forM, forM_)
 import Data.Foldable (foldl')
 import Data.Map (Map, (!))
 import Data.Map qualified as Map
 import Data.Set (Set)
 import Data.Set qualified as Set
 import Effectful
-import Effectful.State.Static.Local (State, get, modify, runState)
+import Effectful.State.Static.Local (State, execState, get, gets, modify, runState)
 
 insertPhis :: Dom.Tree (CFG.Node Label BasicBlock) -> Func -> CFG Label BasicBlock
 insertPhis tree func =
@@ -79,10 +80,30 @@ rename renames cfg Dom.Node {node, children} = do
       instrs <- renameInstrs (block ^. BB.instrs)
       pure (block & (BB.phiNodes .~ phiNodes) . (BB.instrs .~ instrs))
 
--- | for a Bril function, for every variable in the function, insert phi nodes, accumulate in the CFG with a foldl
-runOnFunction :: Func -> Func
-runOnFunction func =
-  func & Func.blocks .~ CFG.values (CFG.removePhis $ renameCFG $ insertPhis tree func)
+-- | Convert a function from SSA, removing all Phi nodes
+fromSSA :: CFG Label BasicBlock -> CFG Label BasicBlock
+fromSSA cfg =
+  runPureEff $
+    execState cfg do
+      labels <- gets CFG.keys
+      forM_ labels \label -> do
+        node <- gets (CFG.findNode label)
+        let block = node ^. CFG.value
+            predecessors = Set.toList $ node ^. CFG.preds
+        forM_ (block ^. BB.phiNodes) \phi -> do
+          let undefs = Map.fromList $ map (,Const (Int 0)) predecessors
+              phiAssigns = fmap Id (phi ^. Phi.args)
+              assigns = Map.union phiAssigns undefs
+              dest = phi ^. Phi.dest
+          forM_ (Map.toList assigns) \(lbl, e) -> do
+            let assign = Assign dest Nothing e
+            modify $ CFG.modifyValue lbl $ BB.addInstr assign
+        modify $ CFG.modifyValue label BB.deletePhis
+
+-- | Convert a function to SSA
+toSSA :: Func -> CFG Label BasicBlock
+toSSA func =
+  renameCFG $ insertPhis tree func
   where
     tree = Dom.tree initialCFG
     initialCFG = CFG.fromFunc func
@@ -95,5 +116,9 @@ runOnFunction func =
             runFreshWithPostfix "." (Func.defs func) $
               rename paramRenames cfg node
 
+roundtrip :: Func -> Func
+roundtrip func =
+  func & Func.blocks .~ CFG.values (fromSSA $ toSSA func)
+
 runOnProgram :: Program -> Program
-runOnProgram = Program.functions %~ map runOnFunction
+runOnProgram = Program.functions %~ map roundtrip

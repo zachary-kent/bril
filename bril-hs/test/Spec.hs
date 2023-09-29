@@ -63,10 +63,10 @@ dominanceFrontier g =
     & Map.fromList
   where
     allNodes = CFG.nodes g
-    Relations {dom} = Dom.relations g
+    Relations {sdom, dom} = Dom.relations g
     dominanceFrontierOfNode a =
       Set.fromList $
-        filter (\b -> not (a `dom` b) && any (a `dom`) (CFG.predecessors b g)) allNodes
+        filter (\b -> not (a `sdom` b) && any (a `dom`) (CFG.predecessors b g)) allNodes
 
 -- | @verifyDominators cfg@ returns `True` iff the dataflow implementation
 -- of dominators agrees with the naive, slow implementation of dominators
