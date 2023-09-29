@@ -9,11 +9,12 @@ module Bril.Dominator
   )
 where
 
-import Bril.CFG (IsCFG (..), IsNode (..))
+import Bril.CFG (IsCFG (..), IsNode (..), predecessors)
 import Bril.Dataflow (Dir (..), Params (..))
 import Bril.Dataflow qualified as Dataflow
 import Data.Foldable (foldl')
 import Data.Function ((&))
+import Data.List qualified as List
 import Data.Map (Map, (!))
 import Data.Map qualified as Map
 import Data.Set (Set, (\\))
@@ -120,6 +121,11 @@ frontier root g =
       (childDoms, childFrontiers) <- unzip <$> traverse go (Set.toList children)
       let doms = Set.insert node $ Set.unions childDoms
           succs = Set.fromList $ successors node g
-          rootFrontier = (succs `Set.union` Set.unions childFrontiers) \\ doms
-      modify (Map.insert node rootFrontier)
-      pure (doms, rootFrontier)
+          rootFrontier =
+            (succs `Set.union` Set.unions childFrontiers) \\ doms
+          withSelf =
+            if node `List.elem` predecessors node g
+              then Set.insert node rootFrontier
+              else rootFrontier
+      modify (Map.insert node withSelf)
+      pure (doms, withSelf)
