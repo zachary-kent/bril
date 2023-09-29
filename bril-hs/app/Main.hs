@@ -35,10 +35,10 @@ type Optimization = Program -> Program
 requestedOptimizations :: Options -> [Optimization]
 requestedOptimizations Options {tdce, dce, lvn, ssa} =
   catMaybes
-    [ guard lvn $> LVN.runOnProgram,
+    [ guard ssa $> SSA.runOnProgram,
+      guard lvn $> LVN.runOnProgram,
       guard dce $> DCE.runOnProgram,
-      guard tdce $> TDCE.runOnProgram,
-      guard ssa $> SSA.runOnProgram
+      guard tdce $> TDCE.runOnProgram
     ]
 
 parseOptions :: IO Options

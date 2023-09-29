@@ -17,3 +17,7 @@ Perform local and global trivial dead code elimination, iterated to convergence.
 ### `--lvn`
 
 Perform local value number with support for algebraic identities, constant propagation, copy propagation, and constant folding.
+
+### `--ssa`
+
+Roundtrip SSA conversion

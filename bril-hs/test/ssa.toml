@@ -10,6 +10,6 @@ pipeline = [
 [runs.ssa]
 pipeline = [
     "bril2json",
-    "stack run -- --ssa",
+    "stack run -- --ssa --dce",
     "brili -p {args}",
 ]
