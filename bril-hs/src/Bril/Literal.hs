@@ -1,7 +1,8 @@
-module Bril.Literal (Literal (..), parseForType) where
+module Bril.Literal (Literal (..), parseForType, parseForMaybeType) where
 
 import Bril.Type (Type)
 import Bril.Type qualified as Type
+import Control.Applicative ((<|>))
 import Data.Aeson hiding (Bool)
 import Data.Aeson.Types (Parser)
 import Data.Int (Int64)
@@ -12,6 +13,13 @@ data Literal
   | Float Double
   | Bool Bool
   deriving (Show)
+
+parseForMaybeType :: Maybe Type -> Value -> Parser Literal
+parseForMaybeType (Just ty) j = parseForType ty j
+parseForMaybeType Nothing j =
+  Int <$> parseJSON j
+    <|> Bool <$> parseJSON j
+    <|> Float <$> parseJSON j
 
 -- | Parse a literal, given its expected type
 parseForType :: Type -> Value -> Parser Literal

@@ -124,7 +124,7 @@ rename renames cfg Dom.Node {node, children} = do
 -- | for a Bril function, for every variable in the function, insert phi nodes, accumulate in the CFG with a foldl
 runOnFunction :: Func -> Func
 runOnFunction func =
-  func & Func.blocks .~ CFG.values (renameCFG $ insertPhis tree func)
+  func & Func.blocks .~ CFG.values (CFG.removePhis $ renameCFG $ insertPhis tree func)
   where
     tree = Dom.tree initialCFG
     initialCFG = CFG.fromFunc func

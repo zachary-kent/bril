@@ -6,7 +6,8 @@ module Bril.Phi
     var,
     dest,
     args,
-    replaceUse
+    replaceUse,
+    assignments,
   )
 where
 
@@ -50,13 +51,19 @@ instance ToJSON Node where
 
 create :: Var -> [Label] -> Node
 create x preds =
-  Node {
-    _dest = x,
-    _args =
-      preds
-      & map (, x)
-      & Map.fromList
-  }
+  Node
+    { _dest = x,
+      _args =
+        preds
+          & map (,x)
+          & Map.fromList
+    }
 
 replaceUse :: Map Var Var -> Label -> Node -> Node
 replaceUse renames l = args %~ Map.update (`Map.lookup` renames) l
+
+assignments :: Node -> [(Var, Label, Var)]
+assignments Node {_dest, _args} =
+  _args
+    & Map.toList
+    & map (\(l, x) -> (_dest, l, x))

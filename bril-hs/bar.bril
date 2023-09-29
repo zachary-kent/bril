@@ -1,0 +1,4 @@
+@main {
+  x = const 3;
+  print x;
+}

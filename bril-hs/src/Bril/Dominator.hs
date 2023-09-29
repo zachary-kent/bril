@@ -9,12 +9,11 @@ module Bril.Dominator
   )
 where
 
-import Bril.CFG (IsCFG (..), IsNode (..), predecessors)
+import Bril.CFG (IsCFG (..), IsNode (..))
 import Bril.Dataflow (Dir (..), Params (..))
 import Bril.Dataflow qualified as Dataflow
 import Data.Foldable (foldl')
 import Data.Function ((&))
-import Data.List qualified as List
 import Data.Map (Map, (!))
 import Data.Map qualified as Map
 import Data.Set (Set, (\\))

@@ -16,7 +16,7 @@ where
 import Bril.CFG (ControlFlow (..))
 import Bril.Expr (Expr, Expr' (..), Var)
 import Bril.Expr qualified as Expr
-import Bril.Literal (Literal, parseForType)
+import Bril.Literal (Literal, parseForMaybeType, parseForType)
 import Bril.Type (Type)
 import Control.Applicative ((<|>))
 import Control.Lens (has, makePrisms, preview)
@@ -30,7 +30,7 @@ type Label = Text
 
 -- | A Bril instruction, parameterized by the type of uses
 data Instr' a
-  = Assign Text Type (Expr' a)
+  = Assign Text (Maybe Type) (Expr' a)
   | Label Label
   | Jmp Label
   | Br a Label Label
@@ -90,7 +90,7 @@ setDef _ inst = inst
 
 -- | The type of a variable defined by an instruction, if any
 destType :: Instr' a -> Maybe Type
-destType (Assign _ t _) = pure t
+destType (Assign _ t _) = t
 destType _ = Nothing
 
 -- | All functions referenced by an instruction
@@ -115,9 +115,9 @@ parseUnary unop obj = do
   [x] <- obj .: "args"
   pure $ Assign dest ty $ unop x
 
-parseDest :: Object -> Parser (Text, Type)
+parseDest :: Object -> Parser (Text, Maybe Type)
 parseDest obj =
-  (,) <$> obj .: "dest" <*> obj .: "type"
+  (,) <$> obj .: "dest" <*> obj .:? "type"
 
 parseBinary :: (Text -> Text -> Expr) -> Object -> Parser Instr
 parseBinary binop obj = do
@@ -174,7 +174,7 @@ parseGuard obj = do
 parseConst :: Object -> Parser Instr
 parseConst obj = do
   (dest, ty) <- parseDest obj
-  val <- parseForType ty =<< obj .: "value"
+  val <- parseForMaybeType ty =<< obj .: "value"
   pure $ Assign dest ty (Const val)
 
 parseInstr :: Object -> Parser Instr

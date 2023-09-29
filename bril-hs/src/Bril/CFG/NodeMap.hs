@@ -13,6 +13,7 @@ module Bril.CFG.NodeMap
     setValue,
     modifyValue,
     values,
+    removePhis,
   )
 where
 
@@ -20,10 +21,10 @@ import Bril.BasicBlock (BasicBlock)
 import Bril.BasicBlock qualified as BB
 import Bril.CFG (ControlFlow, DynCFG (..), IsCFG, IsNode (..), pruneUnreachable)
 import Bril.CFG qualified as CFG
-import Bril.Expr (Var)
+import Bril.Expr (Expr' (Id), Var)
 import Bril.Func (Func)
 import Bril.Func qualified as Func
-import Bril.Instr (Label)
+import Bril.Instr (Instr' (..), Label)
 import Bril.Phi qualified as Phi
 import Control.Lens (makeLenses, view, (%~), (.~), (^.))
 import Data.Foldable (foldl')
@@ -183,3 +184,20 @@ fromFunc func =
 
 values :: (Ord k) => CFG k v -> [v]
 values = map (view value) . CFG.nodes
+
+mapValues :: (Ord k) => (a -> a) -> CFG k a -> CFG k a
+mapValues f cfg@(CFG ord _) =
+  foldl' (\acc k -> modifyValue k f acc) cfg ord
+
+removePhis :: CFG Label BasicBlock -> CFG Label BasicBlock
+removePhis cfg = mapValues BB.deletePhis withAssigns
+  where
+    withAssigns =
+      foldl'
+        (\acc (dst, lbl, src) -> modifyValue lbl (BB.addInstr (Assign dst Nothing (Id src))) acc)
+        cfg
+        phiAssignments
+    phiAssignments =
+      cfg
+        & values
+        & concatMap BB.phiAssignments

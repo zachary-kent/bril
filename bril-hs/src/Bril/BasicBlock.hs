@@ -7,6 +7,9 @@ module Bril.BasicBlock
     renamePhiUses,
     defs,
     start,
+    phiAssignments,
+    addInstr,
+    deletePhis,
   )
 where
 
@@ -15,8 +18,9 @@ import Bril.Expr (Var)
 import Bril.Instr (Instr, Instr' (Label), Label)
 import Bril.Instr qualified as Instr
 import Bril.Phi qualified as Phi
-import Control.Lens (makeLenses, view, (%~), (^.))
+import Control.Lens (makeLenses, over, view, views, (%~), (.~), (^.))
 import Data.Function (on)
+import Data.List qualified as List
 import Data.Map (Map)
 import Data.Map qualified as Map
 import Data.Maybe (mapMaybe)
@@ -30,7 +34,7 @@ data BasicBlock = BasicBlock
   { -- | The name of the basic block is the name of the label
     _name :: Text,
     -- | The phi nodes at the beginning of this basic block
-    _phiNodes :: Map Var Phi.Node,
+    _phiNodes :: Map Label Phi.Node,
     -- | The instrs in the basic block
     _instrs :: [Instr]
   }
@@ -62,3 +66,15 @@ renamePhiUses renamings predLabel = phiNodes %~ Map.map (Phi.replaceUse renaming
 
 defs :: BasicBlock -> Set Var
 defs = Set.fromList . mapMaybe Instr.def . view instrs
+
+phiAssignments :: BasicBlock -> [(Text, Label, Text)]
+phiAssignments = views phiNodes (concatMap Phi.assignments)
+
+addInstr :: Instr -> BasicBlock -> BasicBlock
+addInstr inst =
+  over instrs \insts ->
+    let (h, t) = List.break Instr.isTerminator insts
+     in h ++ inst : t
+
+deletePhis :: BasicBlock -> BasicBlock
+deletePhis = phiNodes .~ Map.empty
