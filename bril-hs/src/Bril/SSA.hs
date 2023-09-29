@@ -134,7 +134,7 @@ runOnFunction func =
         Dom.Empty -> cfg
         Dom.Root node ->
           runPureEff $
-            runFreshWithPostfix ".ssa." (Func.defs func) $
+            runFreshWithPostfix "." (Func.defs func) $
               rename paramRenames cfg node
 
 -- | Perform Static Single Assignment rewrite on every function in a program.
