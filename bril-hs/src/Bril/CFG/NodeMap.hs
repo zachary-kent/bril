@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -Wno-unused-top-binds #-}
+
 module Bril.CFG.NodeMap
   ( Node,
     CFG,

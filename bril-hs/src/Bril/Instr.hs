@@ -16,7 +16,7 @@ where
 import Bril.CFG (ControlFlow (..))
 import Bril.Expr (Expr, Expr' (..), Var)
 import Bril.Expr qualified as Expr
-import Bril.Literal (Literal, parseForMaybeType, parseForType)
+import Bril.Literal (Literal, parseForMaybeType)
 import Bril.Type (Type)
 import Control.Applicative ((<|>))
 import Control.Lens (has, makePrisms, preview)
