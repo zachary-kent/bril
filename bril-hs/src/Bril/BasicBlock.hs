@@ -52,7 +52,7 @@ instance ControlFlow BasicBlock where
     | otherwise = labels (last _instrs)
 
 start :: BasicBlock
-start = BasicBlock "__start" Map.empty [Label ".__start"]
+start = BasicBlock "__start" Map.empty [Label "__start"]
 
 insertPhi :: Phi.Node -> BasicBlock -> BasicBlock
 insertPhi phi = phiNodes %~ Map.insert (phi ^. Phi.dest) phi
