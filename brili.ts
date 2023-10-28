@@ -336,27 +336,40 @@ type State = {
   // Map from base pointers to their reference counts
   rc: Map<number, number>,
 
-  // A worklist of memory locations to free
-  freeWorklist: Set<number>
+  // Base memory locations that have not been freed with reference count 0
+  freeCandidates: Set<number>
 }
 
+/**
+ * Increment the reference count of a pointer
+ * 
+ * @param state the state of the interpreter
+ * @param ptr the pointer whose reference count is to be incremented
+ */
 const incrementRc = (state: State, { loc: { base } }: Pointer) => {
   const prev = state.rc.get(base) ?? 0;
   state.rc.set(base, prev + 1);
   // Delete the base pointer from the free worklist, if it is there
-  state.freeWorklist.delete(base);
+  state.freeCandidates.delete(base);
 }
 
+/** Return whether a type is a pointer type */
 const isPointerType = (ty: bril.Type): ty is bril.ParamType => ty.hasOwnProperty('ptr')
 
 /** Free all pointers with reference count 0 */
 const freeCandidates = (state: State) => {
-  for (const base of state.freeWorklist) {
+  for (const base of state.freeCandidates) {
     state.heap.freeBase(base);
   }
-  state.freeWorklist.clear();
+  state.freeCandidates.clear();
 }
 
+/**
+ * Decrement the reference count of a pointer
+ * 
+ * @param state the state of the interpreter
+ * @param ptr the pointer whose reference count is to be decremented
+ */
 const decrementRc = (state: State, ptr: Pointer) => {
   // stack of pointers to visit
   const worklist = [ptr];
@@ -371,12 +384,12 @@ const decrementRc = (state: State, ptr: Pointer) => {
     // Don't need to update worklist if reference count is > 0
     if (count > 0) continue;
     // Add this pointer to the free worklist
-    state.freeWorklist.add(base);
+    state.freeCandidates.add(base);
     // If this pointer doesn't point to pointers,
     // don't need to update worklist
     if (!isPointerType(type)) continue;
     // Add the base pointer to the free worklist
-    state.freeWorklist.add(base);
+    state.freeCandidates.add(base);
     // If this pointer is an array, we have to decrement the
     // reference count of every element
     for (let off = 0; off < size; off++) {
@@ -1033,7 +1046,7 @@ function evalProg(prog: bril.Program) {
 
   let state: State = {
     rc: new Map(),
-    freeWorklist: new Set(),
+    freeCandidates: new Set(),
     funcs: prog.functions,
     heap,
     env: newEnv,
