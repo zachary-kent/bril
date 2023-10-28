@@ -337,7 +337,7 @@ type State = {
   rc: Map<number, number>,
 
   // Base memory locations that have not been freed with reference count 0
-  freeCandidates: Set<number>
+  freeCandidates: Map<number, Pointer>
 }
 
 /**
@@ -356,14 +356,6 @@ const incrementRc = (state: State, { loc: { base } }: Pointer) => {
 /** Return whether a type is a pointer type */
 const isPointerType = (ty: bril.Type): ty is bril.ParamType => ty.hasOwnProperty('ptr')
 
-/** Free all pointers with reference count 0 */
-const freeCandidates = (state: State) => {
-  for (const base of state.freeCandidates) {
-    state.heap.freeBase(base);
-  }
-  state.freeCandidates.clear();
-}
-
 /**
  * Decrement the reference count of a pointer
  * 
@@ -371,33 +363,44 @@ const freeCandidates = (state: State) => {
  * @param ptr the pointer whose reference count is to be decremented
  */
 const decrementRc = (state: State, ptr: Pointer) => {
-  // stack of pointers to visit
-  const worklist = [ptr];
+  const count = state.rc.get(ptr.loc.base)! - 1;
+  state.rc.set(ptr.loc.base, count);
+  if (count === 0) {
+    // If dropped to 0, now candidate for freeing
+    state.freeCandidates.set(ptr.loc.base, ptr);
+  }
+}
+
+/** Free all pointers with reference count 0 */
+const freeCandidates = (state: State) => {
+  // Invariant: `worklist` contains pointers with reference count 0
+  // that have not yet been freed
+  const worklist = [...state.freeCandidates.values()];
   // next pointer to visit
   let next: Pointer | undefined;
   while (next = worklist.pop()) {
     const { loc, type } = next;
     const { base, size } = loc;
-    // Decrement reference count of pointer
-    const count = state.rc.get(base)! - 1;
-    state.rc.set(base, count);
-    // Don't need to update worklist if reference count is > 0
-    if (count > 0) continue;
-    // Add this pointer to the free worklist
-    state.freeCandidates.add(base);
-    // If this pointer doesn't point to pointers,
-    // don't need to update worklist
-    if (!isPointerType(type)) continue;
-    // Add the base pointer to the free worklist
-    state.freeCandidates.add(base);
-    // If this pointer is an array, we have to decrement the
-    // reference count of every element
-    for (let off = 0; off < size; off++) {
-      // This cast is safe because the pointee has a pointer type
-      const elt = state.heap.readFromOffset(base, off) as Pointer;
-      worklist.push(elt);
+    // If pointer points itself to pointers, decrease the ref counts
+    if (isPointerType(type)) {
+      // If this pointer is an array, we have to decrement the
+      // reference count of every element
+      for (let off = 0; off < size; off++) {
+        // This cast is safe because the pointee has a pointer type
+        const elt = state.heap.readFromOffset(base, off) as Pointer;
+        // Decrement reference count of pointee
+        const count = state.rc.get(elt.loc.base)! - 1;
+        state.rc.set(elt.loc.base, count);
+        if (count === 0) {
+          // If dropped to 0, if now candidate for freeing
+          worklist.push(elt);
+        }
+      }
     }
+    // Finally, free this pointer after freeing its descendants
+    state.heap.freeBase(base);
   }
+  state.freeCandidates.clear();
 }
 
 /**
@@ -1046,7 +1049,7 @@ function evalProg(prog: bril.Program) {
 
   let state: State = {
     rc: new Map(),
-    freeCandidates: new Set(),
+    freeCandidates: new Map(),
     funcs: prog.functions,
     heap,
     env: newEnv,
