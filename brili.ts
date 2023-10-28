@@ -1,5 +1,5 @@
 import * as bril from './bril-ts/bril.ts';
-import {readStdin, unreachable} from './bril-ts/util.ts';
+import { readStdin, unreachable } from './bril-ts/util.ts';
 
 /**
  * An interpreter error to print to the console.
@@ -25,17 +25,19 @@ function error(message: string): BriliError {
  * while still allowing lookups based on the based pointer of each allocation.
  */
 export class Key {
-    readonly base: number;
-    readonly offset: number;
+  readonly base: number;
+  readonly offset: number;
+  readonly size: number;
 
-    constructor(b: number, o: number) {
-        this.base = b;
-        this.offset = o;
-    }
+  constructor(b: number, o: number, size: number) {
+    this.base = b;
+    this.offset = o;
+    this.size = size;
+  }
 
-    add(offset: number) {
-        return new Key(this.base, this.offset + offset);
-    }
+  add(offset: number) {
+    return new Key(this.base, this.offset + offset, this.size);
+  }
 }
 
 /**
@@ -43,64 +45,70 @@ export class Key {
  */
 export class Heap<X> {
 
-    private readonly storage: Map<number, X[]>
-    constructor() {
-        this.storage = new Map()
-    }
+  private readonly storage: Map<number, X[]>
+  constructor() {
+    this.storage = new Map()
+  }
 
-    isEmpty(): boolean {
-        return this.storage.size == 0;
-    }
+  isEmpty(): boolean {
+    return this.storage.size == 0;
+  }
 
-    private count = 0;
-    private getNewBase():number {
-        let val = this.count;
-        this.count++;
-        return val;
-    }
+  private count = 0;
+  private getNewBase(): number {
+    let val = this.count;
+    this.count++;
+    return val;
+  }
 
-    private freeKey(key:Key) {
-        return;
-    }
 
-    alloc(amt:number): Key {
-        if (amt <= 0) {
-            throw error(`cannot allocate ${amt} entries`);
-        }
-        let base = this.getNewBase();
-        this.storage.set(base, new Array(amt))
-        return new Key(base, 0);
+  alloc(amt: number): Key {
+    if (amt <= 0) {
+      throw error(`cannot allocate ${amt} entries`);
     }
+    let base = this.getNewBase();
+    this.storage.set(base, new Array(amt))
+    return new Key(base, 0, amt);
+  }
 
-    free(key: Key) {
-        if (this.storage.has(key.base) && key.offset == 0) {
-            this.freeKey(key);
-            this.storage.delete(key.base);
-        } else {
-            throw error(`Tried to free illegal memory location base: ${key.base}, offset: ${key.offset}. Offset must be 0.`);
-        }
+  free(key: Key) {
+    if (key.offset == 0) {
+      this.freeBase(key.base);
+    } else {
+      throw error(`Tried to free illegal memory location base: ${key.base}, offset: ${key.offset}. Offset must be 0.`);
     }
+  }
+  
+  freeBase(base: number) {
+    if (!this.storage.delete(base)) {
+      throw error(`Illegal free at ${base}`);
+    }
+  }
 
-    write(key: Key, val: X) {
-        let data = this.storage.get(key.base);
-        if (data && data.length > key.offset && key.offset >= 0) {
-            data[key.offset] = val;
-        } else {
-            throw error(`Uninitialized heap location ${key.base} and/or illegal offset ${key.offset}`);
-        }
+  write(key: Key, val: X) {
+    let data = this.storage.get(key.base);
+    if (data && data.length > key.offset && key.offset >= 0) {
+      data[key.offset] = val;
+    } else {
+      throw error(`Uninitialized heap location ${key.base} and/or illegal offset ${key.offset}`);
     }
+  }
 
-    read(key: Key): X {
-        let data = this.storage.get(key.base);
-        if (data && data.length > key.offset && key.offset >= 0) {
-            return data[key.offset];
-        } else {
-            throw error(`Uninitialized heap location ${key.base} and/or illegal offset ${key.offset}`);
-        }
+  read(key: Key): X {
+    return this.readFromOffset(key.base, key.offset);
+  }
+
+  readFromOffset(base: number, offset: number): X {
+    let data = this.storage.get(base);
+    if (data && data.length > offset && offset >= 0) {
+      return data[offset];
+    } else {
+      throw error(`Uninitialized heap location ${base} and/or illegal offset ${offset}`);
     }
+  }
 }
 
-const argCounts: {[key in bril.OpCode]: number | null} = {
+const argCounts: { [key in bril.OpCode]: number | null } = {
   add: 2,
   mul: 2,
   sub: 2,
@@ -173,6 +181,8 @@ function typeCheck(val: Value, typ: bril.Type): boolean {
   throw error(`unknown type ${typ}`);
 }
 
+const isPointer = (val: Value): val is Pointer => val.hasOwnProperty("loc")
+
 /**
  * Check whether the types are equal.
  */
@@ -210,7 +220,7 @@ function findFunc(func: bril.Ident, funcs: readonly bril.Function[]) {
   return matches[0];
 }
 
-function alloc(ptrType: bril.ParamType, amt:number, heap:Heap<Value>): Pointer {
+function alloc(ptrType: bril.ParamType, amt: number, heap: Heap<Value>): Pointer {
   if (typeof ptrType != 'object') {
     throw error(`unspecified pointer type ${ptrType}`);
   } else if (amt <= 0) {
@@ -247,7 +257,7 @@ function getPtr(instr: bril.Operation, env: Env, index: number): Pointer {
 function getArgument(instr: bril.Operation, env: Env, index: number, typ?: bril.Type) {
   let args = instr.args || [];
   if (args.length <= index) {
-    throw error(`${instr.op} expected at least ${index+1} arguments; got ${args.length}`);
+    throw error(`${instr.op} expected at least ${index + 1} arguments; got ${args.length}`);
   }
   let val = get(env, args[index]);
   if (typ && !typeCheck(val, typ)) {
@@ -274,20 +284,20 @@ function getChar(instr: bril.Operation, env: Env, index: number): string {
 
 function getLabel(instr: bril.Operation, index: number): bril.Ident {
   if (!instr.labels) {
-    throw error(`missing labels; expected at least ${index+1}`);
+    throw error(`missing labels; expected at least ${index + 1}`);
   }
   if (instr.labels.length <= index) {
-    throw error(`expecting ${index+1} labels; found ${instr.labels.length}`);
+    throw error(`expecting ${index + 1} labels; found ${instr.labels.length}`);
   }
   return instr.labels[index];
 }
 
 function getFunc(instr: bril.Operation, index: number): bril.Ident {
   if (!instr.funcs) {
-    throw error(`missing functions; expected at least ${index+1}`);
+    throw error(`missing functions; expected at least ${index + 1}`);
   }
   if (instr.funcs.length <= index) {
-    throw error(`expecting ${index+1} functions; found ${instr.funcs.length}`);
+    throw error(`expecting ${index + 1} functions; found ${instr.funcs.length}`);
   }
   return instr.funcs[index];
 }
@@ -297,13 +307,13 @@ function getFunc(instr: bril.Operation, index: number): bril.Ident {
  * communicates control-flow actions back to the top-level interpreter loop.
  */
 type Action =
-  {"action": "next"} |  // Normal execution: just proceed to next instruction.
-  {"action": "jump", "label": bril.Ident} |
-  {"action": "end", "ret": Value | null} |
-  {"action": "speculate"} |
-  {"action": "commit"} |
-  {"action": "abort", "label": bril.Ident};
-let NEXT: Action = {"action": "next"};
+  { "action": "next" } |  // Normal execution: just proceed to next instruction.
+  { "action": "jump", "label": bril.Ident } |
+  { "action": "end", "ret": Value | null } |
+  { "action": "speculate" } |
+  { "action": "commit" } |
+  { "action": "abort", "label": bril.Ident };
+let NEXT: Action = { "action": "next" };
 
 /**
  * The interpreter state that's threaded through recursive calls.
@@ -322,6 +332,59 @@ type State = {
 
   // For speculation: the state at the point where speculation began.
   specparent: State | null,
+
+  // Map from base pointers to their reference counts
+  rc: Map<number, number>,
+
+  // A worklist of memory locations to free
+  freeWorklist: Set<number>
+}
+
+const incrementRc = (state: State, { loc: { base } }: Pointer) => {
+  const prev = state.rc.get(base) ?? 0;
+  state.rc.set(base, prev + 1);
+  // Delete the base pointer from the free worklist, if it is there
+  state.freeWorklist.delete(base);
+}
+
+const isPointerType = (ty: bril.Type): ty is bril.ParamType => ty.hasOwnProperty('ptr')
+
+/** Free all pointers with reference count 0 */
+const freeCandidates = (state: State) => {
+  for (const base of state.freeWorklist) {
+    state.heap.freeBase(base);
+  }
+  state.freeWorklist.clear();
+}
+
+const decrementRc = (state: State, ptr: Pointer) => {
+  // stack of pointers to visit
+  const worklist = [ptr];
+  // next pointer to visit
+  let next: Pointer | undefined;
+  while (next = worklist.pop()) {
+    const { loc, type } = next;
+    const { base, size } = loc;
+    // Decrement reference count of pointer
+    const count = state.rc.get(base)! - 1;
+    state.rc.set(base, count);
+    // Don't need to update worklist if reference count is > 0
+    if (count > 0) continue;
+    // Add this pointer to the free worklist
+    state.freeWorklist.add(base);
+    // If this pointer doesn't point to pointers,
+    // don't need to update worklist
+    if (!isPointerType(type)) continue;
+    // Add the base pointer to the free worklist
+    state.freeWorklist.add(base);
+    // If this pointer is an array, we have to decrement the
+    // reference count of every element
+    for (let off = 0; off < size; off++) {
+      // This cast is safe because the pointee has a pointer type
+      const elt = state.heap.readFromOffset(base, off) as Pointer;
+      worklist.push(elt);
+    }
+  }
 }
 
 /**
@@ -353,16 +416,19 @@ function evalCall(instr: bril.Operation, state: State): Action {
       throw error(`function argument type mismatch`);
     }
 
+    if (isPointer(value)) {
+      // If argument is a pointer, increment its reference count
+      incrementRc(state, value);
+    }
+
     // Set the value of the arg in the new (function) environment.
     newEnv.set(params[i].name, value);
   }
 
   // Invoke the interpreter on the function.
   let newState: State = {
+    ...state,
     env: newEnv,
-    heap: state.heap,
-    funcs: state.funcs,
-    icount: state.icount,
     lastlabel: null,
     curlabel: null,
     specparent: null,  // Speculation not allowed.
@@ -370,9 +436,18 @@ function evalCall(instr: bril.Operation, state: State): Action {
   let retVal = evalFunc(func, newState);
   state.icount = newState.icount;
 
+  for (const [_, value] of newEnv) {
+    if (isPointer(value)) {
+      // All local vars go out of scope, so decrement
+      // reference count of any locations they are
+      // bound to
+      decrementRc(state, value);
+    }
+  }
+
   // Dynamically check the function's return value and type.
   if (!('dest' in instr)) {  // `instr` is an `EffectOperation`.
-     // Expected void function
+    // Expected void function
     if (retVal !== null) {
       throw error(`unexpected value returned without destination`);
     }
@@ -431,344 +506,354 @@ function evalInstr(instr: bril.Instruction, state: State): Action {
   }
 
   switch (instr.op) {
-  case "const":
-    // Interpret JSON numbers as either ints or floats.
-    let value: Value;
-    if (typeof instr.value === "number") {
-      if (instr.type === "float")
+    case "const":
+      // Interpret JSON numbers as either ints or floats.
+      let value: Value;
+      if (typeof instr.value === "number") {
+        if (instr.type === "float")
+          value = instr.value;
+        else
+          value = BigInt(Math.floor(instr.value))
+      } else if (typeof instr.value === "string") {
+        if ([...instr.value].length !== 1) throw error(`char must have one character`);
         value = instr.value;
-      else
-        value = BigInt(Math.floor(instr.value))
-    } else if (typeof instr.value === "string") {
-      if([...instr.value].length !== 1) throw error(`char must have one character`);
-      value = instr.value;
-    } else {
-      value = instr.value;
-    }
-
-    state.env.set(instr.dest, value);
-    return NEXT;
-
-  case "id": {
-    let val = getArgument(instr, state.env, 0);
-    state.env.set(instr.dest, val);
-    return NEXT;
-  }
-
-  case "add": {
-    let val = getInt(instr, state.env, 0) + getInt(instr, state.env, 1);
-    val = BigInt.asIntN(64, val);
-    state.env.set(instr.dest, val);
-    return NEXT;
-  }
-
-  case "mul": {
-    let val = getInt(instr, state.env, 0) * getInt(instr, state.env, 1);
-    val = BigInt.asIntN(64, val);
-    state.env.set(instr.dest, val);
-    return NEXT;
-  }
-
-  case "sub": {
-    let val = getInt(instr, state.env, 0) - getInt(instr, state.env, 1);
-    val = BigInt.asIntN(64, val);
-    state.env.set(instr.dest, val);
-    return NEXT;
-  }
-
-  case "div": {
-    let lhs = getInt(instr, state.env, 0);
-    let rhs = getInt(instr, state.env, 1);
-    if (rhs === BigInt(0)) {
-      throw error(`division by zero`);
-    }
-    let val = lhs / rhs;
-    val = BigInt.asIntN(64, val);
-    state.env.set(instr.dest, val);
-    return NEXT;
-  }
-
-  case "le": {
-    let val = getInt(instr, state.env, 0) <= getInt(instr, state.env, 1);
-    state.env.set(instr.dest, val);
-    return NEXT;
-  }
-
-  case "lt": {
-    let val = getInt(instr, state.env, 0) < getInt(instr, state.env, 1);
-    state.env.set(instr.dest, val);
-    return NEXT;
-  }
-
-  case "gt": {
-    let val = getInt(instr, state.env, 0) > getInt(instr, state.env, 1);
-    state.env.set(instr.dest, val);
-    return NEXT;
-  }
-
-  case "ge": {
-    let val = getInt(instr, state.env, 0) >= getInt(instr, state.env, 1);
-    state.env.set(instr.dest, val);
-    return NEXT;
-  }
-
-  case "eq": {
-    let val = getInt(instr, state.env, 0) === getInt(instr, state.env, 1);
-    state.env.set(instr.dest, val);
-    return NEXT;
-  }
-
-  case "not": {
-    let val = !getBool(instr, state.env, 0);
-    state.env.set(instr.dest, val);
-    return NEXT;
-  }
-
-  case "and": {
-    let val = getBool(instr, state.env, 0) && getBool(instr, state.env, 1);
-    state.env.set(instr.dest, val);
-    return NEXT;
-  }
-
-  case "or": {
-    let val = getBool(instr, state.env, 0) || getBool(instr, state.env, 1);
-    state.env.set(instr.dest, val);
-    return NEXT;
-  }
-
-  case "fadd": {
-    let val = getFloat(instr, state.env, 0) + getFloat(instr, state.env, 1);
-    state.env.set(instr.dest, val);
-    return NEXT;
-  }
-
-  case "fsub": {
-    let val = getFloat(instr, state.env, 0) - getFloat(instr, state.env, 1);
-    state.env.set(instr.dest, val);
-    return NEXT;
-  }
-
-  case "fmul": {
-    let val = getFloat(instr, state.env, 0) * getFloat(instr, state.env, 1);
-    state.env.set(instr.dest, val);
-    return NEXT;
-  }
-
-  case "fdiv": {
-    let val = getFloat(instr, state.env, 0) / getFloat(instr, state.env, 1);
-    state.env.set(instr.dest, val);
-    return NEXT;
-  }
-
-  case "fle": {
-    let val = getFloat(instr, state.env, 0) <= getFloat(instr, state.env, 1);
-    state.env.set(instr.dest, val);
-    return NEXT;
-  }
-
-  case "flt": {
-    let val = getFloat(instr, state.env, 0) < getFloat(instr, state.env, 1);
-    state.env.set(instr.dest, val);
-    return NEXT;
-  }
-
-  case "fgt": {
-    let val = getFloat(instr, state.env, 0) > getFloat(instr, state.env, 1);
-    state.env.set(instr.dest, val);
-    return NEXT;
-  }
-
-  case "fge": {
-    let val = getFloat(instr, state.env, 0) >= getFloat(instr, state.env, 1);
-    state.env.set(instr.dest, val);
-    return NEXT;
-  }
-
-  case "feq": {
-    let val = getFloat(instr, state.env, 0) === getFloat(instr, state.env, 1);
-    state.env.set(instr.dest, val);
-    return NEXT;
-  }
-
-  case "print": {
-    let args = instr.args || [];
-    let values = args.map(function (i) {
-      let val = get(state.env, i);
-      if (Object.is(-0, val)) { return "-0.00000000000000000" };
-      if (typeof val == "number") { return val.toFixed(17) } else {return val.toString()}}
-    );
-    console.log(...values);
-    return NEXT;
-  }
-
-  case "jmp": {
-    return {"action": "jump", "label": getLabel(instr, 0)};
-  }
-
-  case "br": {
-    let cond = getBool(instr, state.env, 0);
-    if (cond) {
-      return {"action": "jump", "label": getLabel(instr, 0)};
-    } else {
-      return {"action": "jump", "label": getLabel(instr, 1)};
-    }
-  }
-
-  case "ret": {
-    let args = instr.args || [];
-    if (args.length == 0) {
-      return {"action": "end", "ret": null};
-    } else if (args.length == 1) {
-      let val = get(state.env, args[0]);
-      return {"action": "end", "ret": val};
-    } else {
-      throw error(`ret takes 0 or 1 argument(s); got ${args.length}`);
-    }
-  }
-
-  case "nop": {
-    return NEXT;
-  }
-
-  case "call": {
-    return evalCall(instr, state);
-  }
-
-  case "alloc": {
-    let amt = getInt(instr, state.env, 0);
-    let typ = instr.type;
-    if (!(typeof typ === "object" && typ.hasOwnProperty('ptr'))) {
-      throw error(`cannot allocate non-pointer type ${instr.type}`);
-    }
-    let ptr = alloc(typ, Number(amt), state.heap);
-    state.env.set(instr.dest, ptr);
-    return NEXT;
-  }
-
-  case "free": {
-    let val = getPtr(instr, state.env, 0);
-    state.heap.free(val.loc);
-    return NEXT;
-  }
-
-  case "store": {
-    let target = getPtr(instr, state.env, 0);
-    state.heap.write(target.loc, getArgument(instr, state.env, 1, target.type));
-    return NEXT;
-  }
-
-  case "load": {
-    let ptr = getPtr(instr, state.env, 0);
-    let val = state.heap.read(ptr.loc);
-    if (val === undefined || val === null) {
-      throw error(`Pointer ${instr.args![0]} points to uninitialized data`);
-    } else {
-      state.env.set(instr.dest, val);
-    }
-    return NEXT;
-  }
-
-  case "ptradd": {
-    let ptr = getPtr(instr, state.env, 0)
-    let val = getInt(instr, state.env, 1)
-    state.env.set(instr.dest, { loc: ptr.loc.add(Number(val)), type: ptr.type })
-    return NEXT;
-  }
-
-  case "phi": {
-    let labels = instr.labels || [];
-    let args = instr.args || [];
-    if (labels.length != args.length) {
-      throw error(`phi node has unequal numbers of labels and args`);
-    }
-    if (!state.lastlabel) {
-      throw error(`phi node executed with no last label`);
-    }
-    let idx = labels.indexOf(state.lastlabel);
-    if (idx === -1) {
-      // Last label not handled. Leave uninitialized.
-      state.env.delete(instr.dest);
-    } else {
-      // Copy the right argument (including an undefined one).
-      if (!instr.args || idx >= instr.args.length) {
-        throw error(`phi node needed at least ${idx+1} arguments`);
+      } else {
+        value = instr.value;
       }
-      let src = instr.args[idx];
-      let val = state.env.get(src);
-      if (val === undefined) {
-        state.env.delete(instr.dest);
+
+      state.env.set(instr.dest, value);
+      return NEXT;
+
+    case "id": {
+      let val = getArgument(instr, state.env, 0);
+      state.env.set(instr.dest, val);
+      return NEXT;
+    }
+
+    case "add": {
+      let val = getInt(instr, state.env, 0) + getInt(instr, state.env, 1);
+      val = BigInt.asIntN(64, val);
+      state.env.set(instr.dest, val);
+      return NEXT;
+    }
+
+    case "mul": {
+      let val = getInt(instr, state.env, 0) * getInt(instr, state.env, 1);
+      val = BigInt.asIntN(64, val);
+      state.env.set(instr.dest, val);
+      return NEXT;
+    }
+
+    case "sub": {
+      let val = getInt(instr, state.env, 0) - getInt(instr, state.env, 1);
+      val = BigInt.asIntN(64, val);
+      state.env.set(instr.dest, val);
+      return NEXT;
+    }
+
+    case "div": {
+      let lhs = getInt(instr, state.env, 0);
+      let rhs = getInt(instr, state.env, 1);
+      if (rhs === BigInt(0)) {
+        throw error(`division by zero`);
+      }
+      let val = lhs / rhs;
+      val = BigInt.asIntN(64, val);
+      state.env.set(instr.dest, val);
+      return NEXT;
+    }
+
+    case "le": {
+      let val = getInt(instr, state.env, 0) <= getInt(instr, state.env, 1);
+      state.env.set(instr.dest, val);
+      return NEXT;
+    }
+
+    case "lt": {
+      let val = getInt(instr, state.env, 0) < getInt(instr, state.env, 1);
+      state.env.set(instr.dest, val);
+      return NEXT;
+    }
+
+    case "gt": {
+      let val = getInt(instr, state.env, 0) > getInt(instr, state.env, 1);
+      state.env.set(instr.dest, val);
+      return NEXT;
+    }
+
+    case "ge": {
+      let val = getInt(instr, state.env, 0) >= getInt(instr, state.env, 1);
+      state.env.set(instr.dest, val);
+      return NEXT;
+    }
+
+    case "eq": {
+      let val = getInt(instr, state.env, 0) === getInt(instr, state.env, 1);
+      state.env.set(instr.dest, val);
+      return NEXT;
+    }
+
+    case "not": {
+      let val = !getBool(instr, state.env, 0);
+      state.env.set(instr.dest, val);
+      return NEXT;
+    }
+
+    case "and": {
+      let val = getBool(instr, state.env, 0) && getBool(instr, state.env, 1);
+      state.env.set(instr.dest, val);
+      return NEXT;
+    }
+
+    case "or": {
+      let val = getBool(instr, state.env, 0) || getBool(instr, state.env, 1);
+      state.env.set(instr.dest, val);
+      return NEXT;
+    }
+
+    case "fadd": {
+      let val = getFloat(instr, state.env, 0) + getFloat(instr, state.env, 1);
+      state.env.set(instr.dest, val);
+      return NEXT;
+    }
+
+    case "fsub": {
+      let val = getFloat(instr, state.env, 0) - getFloat(instr, state.env, 1);
+      state.env.set(instr.dest, val);
+      return NEXT;
+    }
+
+    case "fmul": {
+      let val = getFloat(instr, state.env, 0) * getFloat(instr, state.env, 1);
+      state.env.set(instr.dest, val);
+      return NEXT;
+    }
+
+    case "fdiv": {
+      let val = getFloat(instr, state.env, 0) / getFloat(instr, state.env, 1);
+      state.env.set(instr.dest, val);
+      return NEXT;
+    }
+
+    case "fle": {
+      let val = getFloat(instr, state.env, 0) <= getFloat(instr, state.env, 1);
+      state.env.set(instr.dest, val);
+      return NEXT;
+    }
+
+    case "flt": {
+      let val = getFloat(instr, state.env, 0) < getFloat(instr, state.env, 1);
+      state.env.set(instr.dest, val);
+      return NEXT;
+    }
+
+    case "fgt": {
+      let val = getFloat(instr, state.env, 0) > getFloat(instr, state.env, 1);
+      state.env.set(instr.dest, val);
+      return NEXT;
+    }
+
+    case "fge": {
+      let val = getFloat(instr, state.env, 0) >= getFloat(instr, state.env, 1);
+      state.env.set(instr.dest, val);
+      return NEXT;
+    }
+
+    case "feq": {
+      let val = getFloat(instr, state.env, 0) === getFloat(instr, state.env, 1);
+      state.env.set(instr.dest, val);
+      return NEXT;
+    }
+
+    case "print": {
+      let args = instr.args || [];
+      let values = args.map(function (i) {
+        let val = get(state.env, i);
+        if (Object.is(-0, val)) { return "-0.00000000000000000" };
+        if (typeof val == "number") { return val.toFixed(17) } else { return val.toString() }
+      }
+      );
+      console.log(...values);
+      return NEXT;
+    }
+
+    case "jmp": {
+      return { "action": "jump", "label": getLabel(instr, 0) };
+    }
+
+    case "br": {
+      let cond = getBool(instr, state.env, 0);
+      if (cond) {
+        return { "action": "jump", "label": getLabel(instr, 0) };
+      } else {
+        return { "action": "jump", "label": getLabel(instr, 1) };
+      }
+    }
+
+    case "ret": {
+      let args = instr.args || [];
+      if (args.length == 0) {
+        return { "action": "end", "ret": null };
+      } else if (args.length == 1) {
+        let val = get(state.env, args[0]);
+        return { "action": "end", "ret": val };
+      } else {
+        throw error(`ret takes 0 or 1 argument(s); got ${args.length}`);
+      }
+    }
+
+    case "nop": {
+      return NEXT;
+    }
+
+    case "call": {
+      return evalCall(instr, state);
+    }
+
+    case "alloc": {
+      let amt = getInt(instr, state.env, 0);
+      let typ = instr.type;
+      if (!(typeof typ === "object" && typ.hasOwnProperty('ptr'))) {
+        throw error(`cannot allocate non-pointer type ${instr.type}`);
+      }
+      let ptr = alloc(typ, Number(amt), state.heap);
+      state.env.set(instr.dest, ptr);
+      return NEXT;
+    }
+
+    case "free": {
+      // let val = getPtr(instr, state.env, 0);
+      // state.heap.free(val.loc);
+      return NEXT;
+    }
+
+    case "store": {
+      const { type, loc } = getPtr(instr, state.env, 0);
+      const data = getArgument(instr, state.env, 1, type);
+      if (isPointerType(type)) {
+        // The location we are storing to is itself as pointer
+        // increment the reference count of the pointer we are storing
+        incrementRc(state, data as Pointer);
+        const overwritten = state.heap.read(loc) as Pointer;
+        // decrement the reference count of the pointer we are overwriting
+        decrementRc(state, overwritten);
+      }
+      state.heap.write(loc, data);
+      return NEXT;
+    }
+
+    case "load": {
+      let ptr = getPtr(instr, state.env, 0);
+      let val = state.heap.read(ptr.loc);
+      if (val === undefined || val === null) {
+        throw error(`Pointer ${instr.args![0]} points to uninitialized data`);
       } else {
         state.env.set(instr.dest, val);
       }
-    }
-    return NEXT;
-  }
-
-  // Begin speculation.
-  case "speculate": {
-    return {"action": "speculate"};
-  }
-
-  // Abort speculation if the condition is false.
-  case "guard": {
-    if (getBool(instr, state.env, 0)) {
       return NEXT;
-    } else {
-      return {"action": "abort", "label": getLabel(instr, 0)};
     }
-  }
 
-  // Resolve speculation, making speculative state real.
-  case "commit": {
-    return {"action": "commit"};
-  }
+    case "ptradd": {
+      let ptr = getPtr(instr, state.env, 0)
+      let val = getInt(instr, state.env, 1)
+      state.env.set(instr.dest, { loc: ptr.loc.add(Number(val)), type: ptr.type })
+      return NEXT;
+    }
 
-  case "ceq": {
-    let val = getChar(instr, state.env, 0) === getChar(instr, state.env, 1);
-    state.env.set(instr.dest, val);
-    return NEXT;
-  }
+    case "phi": {
+      let labels = instr.labels || [];
+      let args = instr.args || [];
+      if (labels.length != args.length) {
+        throw error(`phi node has unequal numbers of labels and args`);
+      }
+      if (!state.lastlabel) {
+        throw error(`phi node executed with no last label`);
+      }
+      let idx = labels.indexOf(state.lastlabel);
+      if (idx === -1) {
+        // Last label not handled. Leave uninitialized.
+        state.env.delete(instr.dest);
+      } else {
+        // Copy the right argument (including an undefined one).
+        if (!instr.args || idx >= instr.args.length) {
+          throw error(`phi node needed at least ${idx + 1} arguments`);
+        }
+        let src = instr.args[idx];
+        let val = state.env.get(src);
+        if (val === undefined) {
+          state.env.delete(instr.dest);
+        } else {
+          state.env.set(instr.dest, val);
+        }
+      }
+      return NEXT;
+    }
 
-  case "clt": {
-    let val = getChar(instr, state.env, 0) < getChar(instr, state.env, 1);
-    state.env.set(instr.dest, val);
-    return NEXT;
-  }
+    // Begin speculation.
+    case "speculate": {
+      return { "action": "speculate" };
+    }
 
-  case "cle": {
-    let val = getChar(instr, state.env, 0) <= getChar(instr, state.env, 1);
-    state.env.set(instr.dest, val);
-    return NEXT;
-  }
+    // Abort speculation if the condition is false.
+    case "guard": {
+      if (getBool(instr, state.env, 0)) {
+        return NEXT;
+      } else {
+        return { "action": "abort", "label": getLabel(instr, 0) };
+      }
+    }
 
-  case "cgt": {
-    let val = getChar(instr, state.env, 0) > getChar(instr, state.env, 1);
-    state.env.set(instr.dest, val);
-    return NEXT;
-  }
+    // Resolve speculation, making speculative state real.
+    case "commit": {
+      return { "action": "commit" };
+    }
 
-  case "cge": {
-    let val = getChar(instr, state.env, 0) >= getChar(instr, state.env, 1);
-    state.env.set(instr.dest, val);
-    return NEXT;
-  }
+    case "ceq": {
+      let val = getChar(instr, state.env, 0) === getChar(instr, state.env, 1);
+      state.env.set(instr.dest, val);
+      return NEXT;
+    }
 
-  case "char2int": {
-    let code = getChar(instr, state.env, 0).codePointAt(0);
-    let val = BigInt.asIntN(64, BigInt(code as number));
-    state.env.set(instr.dest, val);
-    return NEXT;
-  }
+    case "clt": {
+      let val = getChar(instr, state.env, 0) < getChar(instr, state.env, 1);
+      state.env.set(instr.dest, val);
+      return NEXT;
+    }
 
-  case "int2char": {
-    let i = getInt(instr, state.env, 0);
-    if (i > 1114111 || i < 0 || (55295 < i && i < 57344)) {
-      throw error(`value ${i} cannot be converted to char`);
-    } 
-    let val = String.fromCodePoint(Number(i));
-    state.env.set(instr.dest, val);
-    return NEXT;
-  }
+    case "cle": {
+      let val = getChar(instr, state.env, 0) <= getChar(instr, state.env, 1);
+      state.env.set(instr.dest, val);
+      return NEXT;
+    }
+
+    case "cgt": {
+      let val = getChar(instr, state.env, 0) > getChar(instr, state.env, 1);
+      state.env.set(instr.dest, val);
+      return NEXT;
+    }
+
+    case "cge": {
+      let val = getChar(instr, state.env, 0) >= getChar(instr, state.env, 1);
+      state.env.set(instr.dest, val);
+      return NEXT;
+    }
+
+    case "char2int": {
+      let code = getChar(instr, state.env, 0).codePointAt(0);
+      let val = BigInt.asIntN(64, BigInt(code as number));
+      state.env.set(instr.dest, val);
+      return NEXT;
+    }
+
+    case "int2char": {
+      let i = getInt(instr, state.env, 0);
+      if (i > 1114111 || i < 0 || (55295 < i && i < 57344)) {
+        throw error(`value ${i} cannot be converted to char`);
+      }
+      let val = String.fromCodePoint(Number(i));
+      state.env.set(instr.dest, val);
+      return NEXT;
+    }
 
   }
   unreachable(instr);
@@ -779,50 +864,64 @@ function evalFunc(func: bril.Function, state: State): Value | null {
   for (let i = 0; i < func.instrs.length; ++i) {
     let line = func.instrs[i];
     if ('op' in line) {
+      if ('dest' in line) {
+        const val = state.env.get(line.dest);
+        if (val && isPointer(val)) {
+          decrementRc(state, val);
+        }
+      }
       // Run an instruction.
       let action = evalInstr(line, state);
+      if ('dest' in line) {
+        const val = state.env.get(line.dest)!;
+        if (isPointer(val)) {
+          incrementRc(state, val);
+        }
+      }
+
+      freeCandidates(state);
 
       // Take the prescribed action.
       switch (action.action) {
-      case 'end': {
-        // Return from this function.
-        return action.ret;
-      }
-      case 'speculate': {
-        // Begin speculation.
-        state.specparent = {...state};
-        state.env = new Map(state.env);
-        break;
-      }
-      case 'commit': {
-        // Resolve speculation.
-        if (!state.specparent) {
-          throw error(`commit in non-speculative state`);
+        case 'end': {
+          // Return from this function.
+          return action.ret;
         }
-        state.specparent = null;
-        break;
-      }
-      case 'abort': {
-        // Restore state.
-        if (!state.specparent) {
-          throw error(`abort in non-speculative state`);
+        case 'speculate': {
+          // Begin speculation.
+          state.specparent = { ...state };
+          state.env = new Map(state.env);
+          break;
         }
-        // We do *not* restore `icount` from the saved state to ensure that we
-        // count "aborted" instructions.
-        Object.assign(state, {
-          env: state.specparent.env,
-          lastlabel: state.specparent.lastlabel,
-          curlabel: state.specparent.curlabel,
-          specparent: state.specparent.specparent,
-        });
-        break;
-      }
-      case 'next':
-      case 'jump':
-        break;
-      default:
-        unreachable(action);
-        throw error(`unhandled action ${(action as any).action}`);
+        case 'commit': {
+          // Resolve speculation.
+          if (!state.specparent) {
+            throw error(`commit in non-speculative state`);
+          }
+          state.specparent = null;
+          break;
+        }
+        case 'abort': {
+          // Restore state.
+          if (!state.specparent) {
+            throw error(`abort in non-speculative state`);
+          }
+          // We do *not* restore `icount` from the saved state to ensure that we
+          // count "aborted" instructions.
+          Object.assign(state, {
+            env: state.specparent.env,
+            lastlabel: state.specparent.lastlabel,
+            curlabel: state.specparent.curlabel,
+            specparent: state.specparent.specparent,
+          });
+          break;
+        }
+        case 'next':
+        case 'jump':
+          break;
+        default:
+          unreachable(action);
+          throw error(`unhandled action ${(action as any).action}`);
       }
       // Move to a label.
       if ('label' in action) {
@@ -880,7 +979,7 @@ function parseNumber(s: string): number {
   }
 }
 
-function parseMainArguments(expected: bril.Argument[], args: string[]) : Env {
+function parseMainArguments(expected: bril.Argument[], args: string[]): Env {
   let newEnv: Env = new Map();
 
   if (args.length !== expected.length) {
@@ -933,6 +1032,8 @@ function evalProg(prog: bril.Program) {
   let newEnv = parseMainArguments(expected, args);
 
   let state: State = {
+    rc: new Map(),
+    freeWorklist: new Set(),
     funcs: prog.functions,
     heap,
     env: newEnv,
@@ -942,6 +1043,15 @@ function evalProg(prog: bril.Program) {
     specparent: null,
   }
   evalFunc(main, state);
+
+  // Free all pointers allocated as local variables in main
+  for (const [_, value] of newEnv) {
+    if (isPointer(value)) {
+      decrementRc(state, value);
+    }
+  }
+  
+  freeCandidates(state);
 
   if (!heap.isEmpty()) {
     throw error(`Some memory locations have not been freed by end of execution.`);
@@ -958,7 +1068,7 @@ async function main() {
     let prog = JSON.parse(await readStdin()) as bril.Program;
     evalProg(prog);
   }
-  catch(e) {
+  catch (e) {
     if (e instanceof BriliError) {
       console.error(`error: ${e.message}`);
       Deno.exit(2);

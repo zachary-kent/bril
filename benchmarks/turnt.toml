@@ -1,5 +1,5 @@
 [envs.brili]
-command = "bril2json < {filename} | brili -p {args}"
+command = "bril2json < {filename} | deno run ../brili.ts -p {args}"
 output.out = "-"
 output.prof = "2"
 
