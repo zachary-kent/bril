@@ -139,6 +139,8 @@ opcode (PtrAdd _ _) = "ptradd"
 -- | Whether an expression is side effectless
 isPure :: Expr' a -> Bool
 isPure (Call _ _) = False
+isPure (Div _ _) = False -- Division by zero
+isPure (FDiv _ _) = False -- Division by zero
 isPure _ = True
 
 -- Attempt to constant fold an expression, producing a literal value
